@@ -60,8 +60,23 @@ async def notify_owner():
 async def on_ready():
     global poll_message
     print(f"✅ Logged in as {bot.user}")
+
     channel = bot.get_channel(CHANNEL_ID)
-    poll_message = await post_poll(channel)
+    if channel is None:
+        print("❌ Poll channel not found! Check POLL_CHANNEL_ID")
+        return
+
+    # Check for existing poll
+    async for msg in channel.history(limit=50):
+        if "React 👍 to vote for server start!" in msg.content:
+            poll_message = msg
+            print(f"ℹ️ Found existing poll with ID {poll_message.id}")
+            break
+
+    # If no existing poll, post new one
+    if poll_message is None:
+        poll_message = await post_poll(channel)
+        print("ℹ️ Posted a fresh poll on startup.")
 
 @bot.event
 async def on_reaction_add(reaction, user):
@@ -83,3 +98,5 @@ async def resetpoll(ctx):
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
 
+# -------- Run Bot --------
+bot.run(TOKEN)
