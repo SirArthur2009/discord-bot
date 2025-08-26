@@ -1,7 +1,8 @@
 import os
 import discord
 from discord.ext import commands
-import smtplib, ssl
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -38,24 +39,18 @@ async def post_poll(channel):
 
 # -------- Notify owner via email --------
 async def notify_owner():
-    if not all([EMAIL, PASSWORD, TO_EMAIL]):
-        print("❌ Email variables not set properly.")
-        return
-
-    subject = "Server Start Vote Passed!"
-    body = "Enough votes have been reached. Time to start the PlayHosting server!"
-    message = f"Subject: {subject}\n\n{body}"
-
+    message = Mail(
+        from_email=os.getenv("EMAIL"),
+        to_emails=os.getenv("TO_EMAIL"),
+        subject='Server Start Vote Passed!',
+        plain_text_content='Enough votes have been reached!'
+    )
     try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-            server.login(EMAIL, PASSWORD)
-            server.sendmail(EMAIL, TO_EMAIL, message)
-        print("📧 Email sent!")
-    except smtplib.SMTPAuthenticationError:
-        print("❌ Authentication failed — check your EMAIL and Gmail App Password.")
+        sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
+        sg.send(message)
+        print("📧 Email sent via SendGrid!")
     except Exception as e:
-        print(f"❌ Failed to send email: {e}")
+        print(f"❌ Failed to send email via SendGrid: {e}")
 
 
 # -------- Bot Events --------
