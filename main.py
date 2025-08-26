@@ -1,6 +1,6 @@
 import os
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -11,21 +11,23 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD"))
+OWNER_ID = int(os.getenv("OWNER_ID"))  # your Discord user ID
+
 poll_message = None
+
+async def post_poll(channel):
+    """Clears channel and posts a new poll."""
+    await channel.purge(limit=100)
+    msg = await channel.send("React 👍 to vote for server start!")
+    await msg.add_reaction("👍")
+    return msg
 
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
-
     channel = bot.get_channel(CHANNEL_ID)
-
-    # 1. Clear old messages
-    await channel.purge(limit=100)
-
-    # 2. Post the poll
     global poll_message
-    poll_message = await channel.send("React 👍 to vote for server start!")
-    await poll_message.add_reaction("👍")
+    poll_message = await post_poll(channel)
 
 @bot.event
 async def on_reaction_add(reaction, user):
@@ -37,7 +39,19 @@ async def on_reaction_add(reaction, user):
         if reaction.count >= VOTE_THRESHOLD:
             await notify_owner()
 
+@bot.command()
+async def resetpoll(ctx):
+    """Manually reset the poll for the next server session."""
+    if ctx.author.id != OWNER_ID:
+        await ctx.send("❌ You don’t have permission to do this.")
+        return
+
+    global poll_message
+    poll_message = await post_poll(ctx.channel)
+    await ctx.send("✅ Poll has been reset for the next round!")
+
 async def notify_owner():
+    """Send an email when vote threshold is reached."""
     import smtplib, ssl
 
     sender = os.getenv("EMAIL")
@@ -56,3 +70,4 @@ async def notify_owner():
 
     print("📧 Email sent!")
 
+bot.run(TOKEN)
