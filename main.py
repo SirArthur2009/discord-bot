@@ -43,8 +43,9 @@ async def notify_owner():
     Sends a message in a specific thread/channel and mentions a role
     when the vote threshold is reached.
     """
-    thread = bot.get_channel(int(os.getenv("NOTIFY_THREAD_ID")))
-    role_id = int(os.getenv("NOTIFY_ROLE_ID"))  # the role you want to mention
+    thread = bot.get_channel(NOTIFY_THREAD_ID)
+    channel = bot.get_channel(CHANNEL_ID)
+    role_id = int(NOTIFY_ROLE_ID)  # the role you want to mention
 
     if thread is None:
         print("❌ Notify thread not found! Check NOTIFY_THREAD_ID")
@@ -53,6 +54,7 @@ async def notify_owner():
     role_mention = f"<@&{role_id}>"
     try:
         await thread.send(f"{role_mention} ✅ Enough votes have been reached! Time to start the server!")
+        await channel.send("📧 Sent notification to owners of server.")
         print("📧 Notification sent in Discord thread!")
     except Exception as e:
         print(f"❌ Failed to send notification in thread: {e}")
@@ -90,6 +92,10 @@ async def on_reaction_add(reaction, user):
     if reaction.message.id == poll_message.id and str(reaction.emoji) == "👍":
         if reaction.count >= VOTE_THRESHOLD:
             await notify_owner()
+
+            # Immediately repost a fresh poll in the same channel
+            poll_message = await post_poll(reaction.message.channel)
+            print("ℹ️ New poll posted automatically after threshold reached.")
 
 # -------- Commands --------
 @bot.command()
