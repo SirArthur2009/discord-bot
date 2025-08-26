@@ -6,7 +6,7 @@ import smtplib, ssl
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID", "0"))
-VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "3"))
+VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "1"))
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
 EMAIL = os.getenv("EMAIL")
 PASSWORD = os.getenv("PASSWORD")
