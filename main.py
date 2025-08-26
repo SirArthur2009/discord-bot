@@ -108,6 +108,5 @@ async def resetpoll(ctx):
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
 
-
 # -------- Run Bot --------
 bot.run(TOKEN)
