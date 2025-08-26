@@ -7,6 +7,8 @@ from sendgrid.helpers.mail import Mail
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID", "0"))
+NOTIFY_THREAD_ID = int(os.getenv("NOTIFY_THREAD_ID", "0"))
+NOTIFY_ROLE_ID = int(os.getenv("NOTIFY_ROLE_ID", "0"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "2"))
 OWNER_ID = [int(os.getenv("OWNER_ID_1", "0")), int(os.getenv("OWNER_ID_2", "1"))]
 EMAIL = os.getenv("EMAIL")
@@ -39,18 +41,24 @@ async def post_poll(channel):
 
 # -------- Notify owner via email --------
 async def notify_owner():
-    message = Mail(
-        from_email=os.getenv("EMAIL"),
-        to_emails=os.getenv("TO_EMAIL"),
-        subject='Server Start Vote Passed!',
-        plain_text_content='Enough votes have been reached!'
-    )
+    """
+    Sends a message in a specific thread/channel and mentions a role
+    when the vote threshold is reached.
+    """
+    thread = bot.get_channel(int(os.getenv("NOTIFY_THREAD_ID")))
+    role_id = int(os.getenv("NOTIFY_ROLE_ID"))  # the role you want to mention
+
+    if thread is None:
+        print("❌ Notify thread not found! Check NOTIFY_THREAD_ID")
+        return
+
+    role_mention = f"<@&{role_id}>"
     try:
-        sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
-        sg.send(message)
-        print("📧 Email sent via SendGrid!")
+        await thread.send(f"{role_mention} ✅ Enough votes have been reached! Time to start the server!")
+        print("📧 Notification sent in Discord thread!")
     except Exception as e:
-        print(f"❌ Failed to send email via SendGrid: {e}")
+        print(f"❌ Failed to send notification in thread: {e}")
+
 
 
 # -------- Bot Events --------
