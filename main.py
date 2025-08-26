@@ -1,8 +1,6 @@
 import os
 import discord
 from discord.ext import commands
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
