@@ -1,73 +1,85 @@
 import os
 import discord
 from discord.ext import commands
+import smtplib, ssl
 
+# -------- Load environment variables safely --------
+TOKEN = os.getenv("DISCORD_TOKEN")
+CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID", "0"))
+VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "3"))
+OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+EMAIL = os.getenv("EMAIL")
+PASSWORD = os.getenv("PASSWORD")
+TO_EMAIL = os.getenv("TO_EMAIL")
+
+# -------- Intents and Bot --------
 intents = discord.Intents.default()
 intents.messages = True
 intents.reactions = True
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID"))
-VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD"))
-OWNER_ID = int(os.getenv("OWNER_ID"))  # your Discord user ID
-
 poll_message = None
 
+# -------- Post poll safely --------
 async def post_poll(channel):
-    """Clears channel and posts a new poll."""
-    await channel.purge(limit=100)
-    msg = await channel.send("React 👍 to vote for server start!")
-    await msg.add_reaction("👍")
-    return msg
+    if channel is None:
+        print("❌ Poll channel not found! Check POLL_CHANNEL_ID")
+        return None
+    try:
+        await channel.purge(limit=100)
+        msg = await channel.send("React 👍 to vote for server start!")
+        await msg.add_reaction("👍")
+        print(f"✅ Poll posted with ID {msg.id}")
+        return msg
+    except Exception as e:
+        print(f"❌ Failed to post poll: {e}")
+        return None
 
+# -------- Notify owner via email --------
+async def notify_owner():
+    if not all([EMAIL, PASSWORD, TO_EMAIL]):
+        print("❌ Email variables not set properly.")
+        return
+
+    subject = "Server Start Vote Passed!"
+    body = "Enough votes have been reached. Time to start the PlayHosting server!"
+    message = f"Subject: {subject}\n\n{body}"
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(EMAIL, PASSWORD)
+            server.sendmail(EMAIL, TO_EMAIL, message)
+        print("📧 Email sent!")
+    except Exception as e:
+        print(f"❌ Failed to send email: {e}")
+
+# -------- Bot Events --------
 @bot.event
 async def on_ready():
+    global poll_message
     print(f"✅ Logged in as {bot.user}")
     channel = bot.get_channel(CHANNEL_ID)
-    global poll_message
     poll_message = await post_poll(channel)
 
 @bot.event
 async def on_reaction_add(reaction, user):
     global poll_message
-    if user.bot:
+    if user.bot or poll_message is None:
         return
-
     if reaction.message.id == poll_message.id and str(reaction.emoji) == "👍":
         if reaction.count >= VOTE_THRESHOLD:
             await notify_owner()
 
+# -------- Commands --------
 @bot.command()
 async def resetpoll(ctx):
-    """Manually reset the poll for the next server session."""
+    global poll_message
     if ctx.author.id != OWNER_ID:
         await ctx.send("❌ You don’t have permission to do this.")
         return
-
-    global poll_message
     poll_message = await post_poll(ctx.channel)
-    await ctx.send("✅ Poll has been reset for the next round!")
+    if poll_message:
+        await ctx.send("✅ Poll has been reset for the next round!")
 
-async def notify_owner():
-    """Send an email when vote threshold is reached."""
-    import smtplib, ssl
-
-    sender = os.getenv("EMAIL")
-    password = os.getenv("PASSWORD")
-    receiver = os.getenv("TO_EMAIL")
-
-    subject = "Server Start Vote Passed!"
-    body = "Enough votes have been reached. Time to start the PlayHosting server!"
-
-    message = f"Subject: {subject}\n\n{body}"
-
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-        server.login(sender, password)
-        server.sendmail(sender, receiver, message)
-
-    print("📧 Email sent!")
-
-bot.run(TOKEN)
