@@ -7,7 +7,7 @@ import smtplib, ssl
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID", "0"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "2"))
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+OWNER_ID = [int(os.getenv("OWNER_ID_1", "0")), int(os.getenv("OWNER_ID_2))]
 EMAIL = os.getenv("EMAIL")
 PASSWORD = os.getenv("PASSWORD")
 TO_EMAIL = os.getenv("TO_EMAIL")
@@ -94,7 +94,7 @@ async def on_reaction_add(reaction, user):
 @bot.command()
 async def resetpoll(ctx):
     global poll_message
-    if ctx.author.id != OWNER_ID:
+    if ctx.author.id in OWNER_ID:
         await ctx.send("❌ You don’t have permission to do this.")
         return
     poll_message = await post_poll(ctx.channel)
