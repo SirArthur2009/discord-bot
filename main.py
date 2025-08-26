@@ -52,8 +52,11 @@ async def notify_owner():
             server.login(EMAIL, PASSWORD)
             server.sendmail(EMAIL, TO_EMAIL, message)
         print("📧 Email sent!")
+    except smtplib.SMTPAuthenticationError:
+        print("❌ Authentication failed — check your EMAIL and Gmail App Password.")
     except Exception as e:
         print(f"❌ Failed to send email: {e}")
+
 
 # -------- Bot Events --------
 @bot.event
