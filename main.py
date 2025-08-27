@@ -104,6 +104,8 @@ async def on_reaction_add(reaction, user):
 @bot.command()
 async def resetpoll(ctx):
     global poll_message
+
+    print(f"ctx.author.id: {ctx.author.id}      OWNER_ID: {OWNER_ID}")
     if ctx.author.id not in OWNER_ID:
         await ctx.send("❌ You don’t have permission to do this.")
         return
