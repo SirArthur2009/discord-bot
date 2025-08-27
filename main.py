@@ -58,13 +58,23 @@ async def notify_owner():
         print(f"❌ Failed to send notification in thread: {e}")
 
 # -------- Reset and wait placeholder --------
-async def resetAndWait(channel) -> None:
+async def resetAndWait():
+    """
+    Clears the poll channel, posts cooldown, then waits before new votes.
+    """
     global poll_message
-    if poll_message is not None:
-        await poll_message.delete()
-        poll_message = None
-    await channel.send("⏳ Poll is on cooldown. Please wait 1 minute before voting again.")
+    channel = bot.get_channel(CHANNEL_ID)
+
+    if channel is None:
+        print("❌ Poll channel not found in resetAndWait()")
+        return
+
+    # Purge all messages in channel
+    await channel.purge(limit=100)
+    cooldown_message = await channel.send("⏳ Poll is on cooldown. Please wait 1 minute before voting again.")
     await asyncio.sleep(60)
+    await cooldown_message.delete()
+
 
 # -------- Bot Events --------
 @bot.event
@@ -95,23 +105,31 @@ async def on_reaction_add(reaction, user):
     if reaction.message.id == poll_message.id and str(reaction.emoji) == "👍":
         if reaction.count >= VOTE_THRESHOLD:
             await notify_owner()
-            await resetAndWait(reaction.message.channel)
+            await resetAndWait()
 
             poll_message = await post_poll(reaction.message.channel)
             print("ℹ️ New poll posted automatically after threshold reached.")
+
 
 # -------- Commands --------
 @bot.command()
 async def resetpoll(ctx):
     global poll_message
-
-    print(f"ctx.author.id: {ctx.author.id}      OWNER_ID: {OWNER_ID}")
-    if ctx.author.id not in OWNER_ID:
+    if ctx.author.id not in OWNER_ID:  # <-- flipped logic here
         await ctx.send("❌ You don’t have permission to do this.")
         return
-    poll_message = await post_poll(ctx.channel)
+
+    channel = bot.get_channel(CHANNEL_ID)
+    if channel is None:
+        await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
+        return
+
+    # Purge and repost
+    await channel.purge(limit=100)
+    poll_message = await post_poll(channel)
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
+
 
 # -------- Run Bot --------
 bot.run(TOKEN)
