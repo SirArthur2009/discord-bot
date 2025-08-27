@@ -1,5 +1,6 @@
 import os
 import discord
+import asyncio
 from discord.ext import commands
 
 # -------- Load environment variables safely --------
@@ -9,9 +10,6 @@ NOTIFY_THREAD_ID = int(os.getenv("NOTIFY_THREAD_ID", "0"))
 NOTIFY_ROLE_ID = int(os.getenv("NOTIFY_ROLE_ID", "0"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "2"))
 OWNER_ID = [int(os.getenv("OWNER_ID_1", "0")), int(os.getenv("OWNER_ID_2", "1"))]
-EMAIL = os.getenv("EMAIL")
-PASSWORD = os.getenv("PASSWORD")
-TO_EMAIL = os.getenv("TO_EMAIL")
 
 # -------- Intents and Bot --------
 intents = discord.Intents.default()
@@ -24,34 +22,34 @@ poll_message = None
 
 # -------- Post poll safely --------
 async def post_poll(channel):
+    global poll_message
     if channel is None:
         print("❌ Poll channel not found! Check POLL_CHANNEL_ID")
         return None
     try:
-        await channel.purge(limit=100)
+        # Only delete the bot’s last poll, not whole channel
+        async for msg in channel.history(limit=50):
+            if msg.author == bot.user and "React 👍 to vote" in msg.content:
+                await msg.delete()
         msg = await channel.send("React 👍 to vote for server start!")
         await msg.add_reaction("👍")
         print(f"✅ Poll posted with ID {msg.id}")
+        poll_message = msg
         return msg
     except Exception as e:
         print(f"❌ Failed to post poll: {e}")
         return None
 
-# -------- Notify owner via email --------
+# -------- Notify owners via mention roles --------
 async def notify_owner():
-    """
-    Sends a message in a specific thread/channel and mentions a role
-    when the vote threshold is reached.
-    """
     thread = bot.get_channel(NOTIFY_THREAD_ID)
     channel = bot.get_channel(CHANNEL_ID)
-    role_id = int(NOTIFY_ROLE_ID)  # the role you want to mention
+    role_mention = f"<@&{NOTIFY_ROLE_ID}>"
 
     if thread is None:
         print("❌ Notify thread not found! Check NOTIFY_THREAD_ID")
         return
 
-    role_mention = f"<@&{role_id}>"
     try:
         await thread.send(f"{role_mention} ✅ Enough votes have been reached! Time to start the server!")
         await channel.send("📧 Sent notification to owners of server.")
@@ -59,7 +57,14 @@ async def notify_owner():
     except Exception as e:
         print(f"❌ Failed to send notification in thread: {e}")
 
-
+# -------- Reset and wait placeholder --------
+async def resetAndWait(channel) -> None:
+    global poll_message
+    if poll_message is not None:
+        await poll_message.delete()
+        poll_message = None
+    await channel.send("⏳ Poll is on cooldown. Please wait 1 minute before voting again.")
+    await asyncio.sleep(60)
 
 # -------- Bot Events --------
 @bot.event
@@ -72,14 +77,12 @@ async def on_ready():
         print("❌ Poll channel not found! Check POLL_CHANNEL_ID")
         return
 
-    # Check for existing poll
     async for msg in channel.history(limit=50):
         if "React 👍 to vote for server start!" in msg.content:
             poll_message = msg
             print(f"ℹ️ Found existing poll with ID {poll_message.id}")
             break
 
-    # If no existing poll, post new one
     if poll_message is None:
         poll_message = await post_poll(channel)
         print("ℹ️ Posted a fresh poll on startup.")
@@ -92,8 +95,8 @@ async def on_reaction_add(reaction, user):
     if reaction.message.id == poll_message.id and str(reaction.emoji) == "👍":
         if reaction.count >= VOTE_THRESHOLD:
             await notify_owner()
+            await resetAndWait(reaction.message.channel)
 
-            # Immediately repost a fresh poll in the same channel
             poll_message = await post_poll(reaction.message.channel)
             print("ℹ️ New poll posted automatically after threshold reached.")
 
@@ -101,7 +104,7 @@ async def on_reaction_add(reaction, user):
 @bot.command()
 async def resetpoll(ctx):
     global poll_message
-    if ctx.author.id in OWNER_ID:
+    if ctx.author.id not in OWNER_ID:
         await ctx.send("❌ You don’t have permission to do this.")
         return
     poll_message = await post_poll(ctx.channel)
@@ -110,3 +113,4 @@ async def resetpoll(ctx):
 
 # -------- Run Bot --------
 bot.run(TOKEN)
+
