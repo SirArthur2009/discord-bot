@@ -10,6 +10,7 @@ NOTIFY_THREAD_ID = int(os.getenv("NOTIFY_THREAD_ID", "0"))
 NOTIFY_ROLE_ID = int(os.getenv("NOTIFY_ROLE_ID", "0"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "2"))
 OWNER_ID = [int(os.getenv("OWNER_ID_1", "0")), int(os.getenv("OWNER_ID_2", "1"))]
+LOGIN_CREDENTIALS = os.getenv("LOGIN_CREDENTIALS").split(", ")
 
 # -------- Intents and Bot --------
 intents = discord.Intents.default()
@@ -19,6 +20,8 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 poll_message = None
+running_mode = False  # <-- new flag
+
 
 # -------- Post poll safely --------
 async def post_poll(channel):
@@ -40,6 +43,7 @@ async def post_poll(channel):
         print(f"❌ Failed to post poll: {e}")
         return None
 
+
 # -------- Notify owners via mention roles --------
 async def notify_owner():
     thread = bot.get_channel(NOTIFY_THREAD_ID)
@@ -57,23 +61,22 @@ async def notify_owner():
     except Exception as e:
         print(f"❌ Failed to send notification in thread: {e}")
 
+
 # -------- Reset and wait placeholder --------
 async def resetAndWait():
-    """
-    Clears the poll channel, posts cooldown, then waits before new votes.
-    """
-    global poll_message
+    global poll_message, running_mode
     channel = bot.get_channel(CHANNEL_ID)
 
     if channel is None:
         print("❌ Poll channel not found in resetAndWait()")
         return
 
-    # Purge all messages in channel
-    await channel.purge(limit=100)
-    cooldown_message = await channel.send("⏳ Poll is on cooldown. Please wait 1 minute before voting again.")
-    await asyncio.sleep(60)
-    await cooldown_message.delete()
+    # Only do cooldown if not in running mode
+    if not running_mode:
+        await channel.purge(limit=100)
+        cooldown_message = await channel.send("⏳ Poll is on cooldown. Please wait 1 minute before voting again.")
+        await asyncio.sleep(60)
+        await cooldown_message.delete()
 
 
 # -------- Bot Events --------
@@ -97,25 +100,28 @@ async def on_ready():
         poll_message = await post_poll(channel)
         print("ℹ️ Posted a fresh poll on startup.")
 
+
 @bot.event
 async def on_reaction_add(reaction, user):
-    global poll_message
-    if user.bot or poll_message is None:
+    global poll_message, running_mode
+    if user.bot or poll_message is None or running_mode:
         return
     if reaction.message.id == poll_message.id and str(reaction.emoji) == "👍":
         if reaction.count >= VOTE_THRESHOLD:
             await notify_owner()
             await resetAndWait()
 
-            poll_message = await post_poll(reaction.message.channel)
-            print("ℹ️ New poll posted automatically after threshold reached.")
+            # Only repost if not in running mode
+            if not running_mode:
+                poll_message = await post_poll(reaction.message.channel)
+                print("ℹ️ New poll posted automatically after threshold reached.")
 
 
 # -------- Commands --------
 @bot.command()
 async def resetpoll(ctx):
-    global poll_message
-    if ctx.author.id not in OWNER_ID:  # <-- flipped logic here
+    global poll_message, running_mode
+    if ctx.author.id not in OWNER_ID:
         await ctx.send("❌ You don’t have permission to do this.")
         return
 
@@ -124,13 +130,32 @@ async def resetpoll(ctx):
         await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
         return
 
-    # Purge and repost
+    running_mode = False  # <-- turn running mode off
     await channel.purge(limit=100)
     poll_message = await post_poll(channel)
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
 
 
+@bot.command()
+async def running(ctx):
+    global running_mode, poll_message
+    if ctx.author.id not in OWNER_ID:
+        await ctx.send("❌ You don’t have permission to do this.")
+        return
+
+    channel = bot.get_channel(CHANNEL_ID)
+    if channel is None:
+        await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
+        return
+
+    running_mode = True
+    poll_message = None  # no active poll during running mode
+    await channel.purge(limit=100)
+    await channel.send("Server is active! ")
+    await channel.send(f"Use these credentials to log into the server:\nIP: {LOGIN_CREDENTIALS[0]}\nPort: {LOGIN_CREDENTIALS[1]}")
+    await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
+
+
 # -------- Run Bot --------
 bot.run(TOKEN)
-
