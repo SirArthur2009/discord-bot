@@ -153,7 +153,7 @@ async def running(ctx):
     poll_message = None  # no active poll during running mode
     await channel.purge(limit=100)
     await channel.send("Server is active! ")
-    await channel.send(f"Use these credentials to log into the server:\nIP: {LOGIN_CREDENTIALS[0]}\nPort: {LOGIN_CREDENTIALS[1]}")
+    await channel.send(f"Use this info to connect to the server:\nIP: {LOGIN_CREDENTIALS[0]}\nPort: {LOGIN_CREDENTIALS[1]} (Bedrock users only)")
     await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
 
 
