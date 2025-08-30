@@ -9,7 +9,7 @@ CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID", "0"))
 NOTIFY_THREAD_ID = int(os.getenv("NOTIFY_THREAD_ID", "0"))
 NOTIFY_ROLE_ID = int(os.getenv("NOTIFY_ROLE_ID", "0"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "2"))
-OWNER_ID = [int(os.getenv("OWNER_ID_1", "0")), int(os.getenv("OWNER_ID_2", "0"))]
+OWNER_ID = [int(os.getenv("OWNER_ID_1", "0")), int(os.getenv("OWNER_ID_2", "0")), int(os.getenv("OWNER_ID_3", "0"))]
 LOGIN_CREDENTIALS = os.getenv("LOGIN_CREDENTIALS").split(", ")
 
 # -------- Intents and Bot --------
