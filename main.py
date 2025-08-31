@@ -13,7 +13,7 @@ NOTIFY_ROLE_ID = int(os.getenv("NOTIFY_ROLE_ID", "0"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "2"))
 LOGIN_CREDENTIALS = os.getenv("LOGIN_CREDENTIALS").split(", ")
 
-NOTIFIED_ROLE_NAME = "get-notified"  # Role to assign
+NOTIFIED_ROLE_ID = int(os.getenv("NOTIFIED_ROLE_ID"))  # Role ID
 GENERAL_CHANNEL_ID = int(os.getenv("GENERAL_CHANNEL_ID"))  # Channel restriction by ID
 
 
@@ -22,6 +22,7 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.reactions = True
 intents.message_content = True
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 poll_message = None
@@ -180,6 +181,8 @@ async def resetpoll(ctx):
 async def running(ctx):
     global running_mode, poll_message
 
+    role = ctx.guild.get_role(NOTIFIED_ROLE_ID)
+
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
         await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
@@ -193,52 +196,49 @@ async def running(ctx):
         f"Use this info to connect to the server:\n"
         f"IP: {LOGIN_CREDENTIALS[0]}\n"
         f"Port: {LOGIN_CREDENTIALS[1]} (The port is for Bedrock users only)\n"
-        f"\nMentioning the role <@{NOTIFIED_ROLE_NAME}>. Run !getnotified to get this role and be notified when the server is ready again. Run !stopnotified to remove the role."
+        f"\nMentioning the role {role.mention}. Run !getnotified to get this role and be notified when the server is ready again. Run !stopnotified to remove the role."
     )
     await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
 
 
 
-# ----------------- getnotified command -----------------
+# ----------------- getnotified -----------------
 @bot.command()
 async def getnotified(ctx):
-    # Restrict to a specific channel by ID
     if ctx.channel.id != GENERAL_CHANNEL_ID:
-        return await ctx.send(f"Please use this command in the designated channel.")
+        return await ctx.send("Please use this command in the designated channel.")
 
-    role = discord.utils.get(ctx.guild.roles, name=NOTIFIED_ROLE_NAME)
+    role = ctx.guild.get_role(NOTIFIED_ROLE_ID)
     if not role:
-        return await ctx.send(f"The role **{NOTIFIED_ROLE_NAME}** does not exist!")
+        return await ctx.send("The role does not exist!")
 
     if role in ctx.author.roles:
-        return await ctx.send(f"{ctx.author.mention}, you already have the **{NOTIFIED_ROLE_NAME}** role!")
+        return await ctx.send(f"{ctx.author.mention}, you already have that role!")
 
     try:
         await ctx.author.add_roles(role)
-        await ctx.send(f"{ctx.author.mention}, you have been added to the **{NOTIFIED_ROLE_NAME}** role!")
+        await ctx.send(f"{ctx.author.mention}, you have been added to the role!")
     except discord.Forbidden:
         await ctx.send("I don't have permission to add roles.")
 
-# ----------------- stopnotified command -----------------
+# ----------------- stopnotified -----------------
 @bot.command()
 async def stopnotified(ctx):
-    # Restrict to a specific channel by ID
     if ctx.channel.id != GENERAL_CHANNEL_ID:
-        return await ctx.send(f"Please use this command in the designated channel.")
+        return await ctx.send("Please use this command in the designated channel.")
 
-    role = discord.utils.get(ctx.guild.roles, name=NOTIFIED_ROLE_NAME)
+    role = ctx.guild.get_role(NOTIFIED_ROLE_ID)
     if not role:
-        return await ctx.send(f"The role **{NOTIFIED_ROLE_NAME}** does not exist!")
+        return await ctx.send("The role does not exist!")
 
     if role not in ctx.author.roles:
-        return await ctx.send(f"{ctx.author.mention}, you don't have the **{NOTIFIED_ROLE_NAME}** role!")
+        return await ctx.send(f"{ctx.author.mention}, you don't have that role!")
 
     try:
         await ctx.author.remove_roles(role)
-        await ctx.send(f"{ctx.author.mention}, the **{NOTIFIED_ROLE_NAME}** role has been removed.")
+        await ctx.send(f"{ctx.author.mention}, the role has been removed.")
     except discord.Forbidden:
         await ctx.send("I don't have permission to remove roles.")
-
 
 # -------- Run Bot --------
 bot.run(TOKEN)
