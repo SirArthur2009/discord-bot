@@ -1,7 +1,9 @@
 import os
 import discord
 import asyncio
-from discord.ext import commands
+from discord.ext import commands, tasks
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -19,7 +21,12 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 poll_message = None
-running_mode = False  # <-- new flag
+running_mode = False  # <-- flag to indicate server running
+
+# -------- Fixed Mountain Time --------
+MT = ZoneInfo("America/Denver")
+POLL_PAUSE_HOUR = 21  # 9 PM MT
+POLL_RESUME_HOUR = 8  # 8 AM MT
 
 
 # -------- Post poll safely --------
@@ -29,7 +36,7 @@ async def post_poll(channel):
         print("❌ Poll channel not found! Check POLL_CHANNEL_ID")
         return None
     try:
-        # Only delete the bot’s last poll, not whole channel
+        # Delete only the bot's last poll
         async for msg in channel.history(limit=50):
             if msg.author == bot.user and "React 👍 to vote" in msg.content:
                 await msg.delete()
@@ -78,6 +85,41 @@ async def resetAndWait():
         await cooldown_message.delete()
 
 
+# -------- Night Pause / Morning Resume --------
+@tasks.loop(hours=1)
+async def poll_scheduler():
+    global poll_message, running_mode
+    channel = bot.get_channel(CHANNEL_ID)
+    if channel is None:
+        return
+
+    now = datetime.now(MT).time()  # use Mountain Time
+
+    # Pause at 9 PM MT
+    if now.hour == POLL_PAUSE_HOUR:
+        await channel.purge(limit=100)
+        await channel.send(f"⏸️ Poll paused until {POLL_RESUME_HOUR:02d}:00 MT.")
+        poll_message = None
+        print("🌙 Poll paused for the night.")
+
+    # Resume at 8 AM MT
+    elif now.hour == POLL_RESUME_HOUR and not running_mode:
+        await channel.purge(limit=100)
+        poll_message = await post_poll(channel)
+        if poll_message:
+            print("🌅 Morning poll posted automatically.")
+
+
+@poll_scheduler.before_loop
+async def before_poll_scheduler():
+    """Wait until the top of the next hour before starting the loop."""
+    await bot.wait_until_ready()
+    now = datetime.now(MT)
+    seconds_until_next_hour = 3600 - (now.minute * 60 + now.second)
+    print(f"⏳ Waiting {seconds_until_next_hour} seconds to align scheduler to the hour.")
+    await asyncio.sleep(seconds_until_next_hour)
+
+
 # -------- Bot Events --------
 @bot.event
 async def on_ready():
@@ -99,6 +141,10 @@ async def on_ready():
         poll_message = await post_poll(channel)
         print("ℹ️ Posted a fresh poll on startup.")
 
+    # Start the scheduler
+    poll_scheduler.start()
+    print(f"⏰ Scheduler running in Mountain Time (pause {POLL_PAUSE_HOUR:02d}:00, resume {POLL_RESUME_HOUR:02d}:00)")
+
 
 @bot.event
 async def on_reaction_add(reaction, user):
@@ -110,7 +156,6 @@ async def on_reaction_add(reaction, user):
             await notify_owner()
             await resetAndWait()
 
-            # Only repost if not in running mode
             if not running_mode:
                 poll_message = await post_poll(reaction.message.channel)
                 print("ℹ️ New poll posted automatically after threshold reached.")
@@ -126,7 +171,7 @@ async def resetpoll(ctx):
         await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
         return
 
-    running_mode = False  # <-- turn running mode off
+    running_mode = False
     await channel.purge(limit=100)
     poll_message = await post_poll(channel)
     if poll_message:
@@ -143,10 +188,14 @@ async def running(ctx):
         return
 
     running_mode = True
-    poll_message = None  # no active poll during running mode
+    poll_message = None
     await channel.purge(limit=100)
     await channel.send("Server is active! ")
-    await channel.send(f"Use this info to connect to the server:\nIP: {LOGIN_CREDENTIALS[0]}\nPort: {LOGIN_CREDENTIALS[1]} (The port is for Bedrock users only)")
+    await channel.send(
+        f"Use this info to connect to the server:\n"
+        f"IP: {LOGIN_CREDENTIALS[0]}\n"
+        f"Port: {LOGIN_CREDENTIALS[1]} (The port is for Bedrock users only)"
+    )
     await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
 
 
