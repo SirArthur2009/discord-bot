@@ -193,7 +193,7 @@ async def running(ctx):
         f"Use this info to connect to the server:\n"
         f"IP: {LOGIN_CREDENTIALS[0]}\n"
         f"Port: {LOGIN_CREDENTIALS[1]} (The port is for Bedrock users only)\n"
-        f"\nMentioning the role <@&{NOTIFIED_ROLE_NAME}>. Run !getnotified to get this role and be notified when the server is ready again. Run !stopnotified to remove the role."
+        f"\nMentioning the role <@{NOTIFIED_ROLE_NAME}>. Run !getnotified to get this role and be notified when the server is ready again. Run !stopnotified to remove the role."
     )
     await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
 
