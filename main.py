@@ -31,7 +31,7 @@ running_mode = False  # <-- flag to indicate server running
 # -------- Fixed Mountain Time --------
 MT = ZoneInfo("America/Denver")
 POLL_PAUSE_HOUR = 21  # 9 PM MT
-POLL_RESUME_HOUR = 8  # 8 AM MT
+POLL_RESUME_HOUR = 6  # 8 AM MT
 
 
 # -------- Post poll safely --------
