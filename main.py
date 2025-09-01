@@ -27,6 +27,7 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 poll_message = None
 running_mode = False  # <-- flag to indicate server running
+paused = False
 
 # -------- Fixed Mountain Time --------
 MT = ZoneInfo("America/Denver")
@@ -90,7 +91,7 @@ async def resetAndWait():
 # -------- Night Pause / Morning Resume --------
 @tasks.loop(hours=1)
 async def poll_scheduler():
-    global poll_message, running_mode
+    global poll_message, running_mode, paused
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
         return
@@ -102,12 +103,14 @@ async def poll_scheduler():
         await channel.purge(limit=100)
         await channel.send(f"⏸️ Poll paused until {POLL_RESUME_HOUR:02d}:00 MT.")
         poll_message = None
+        paused = True
         print("🌙 Poll paused for the night.")
 
     # Resume at 8 AM MT
     elif now.hour == POLL_RESUME_HOUR and not running_mode:
         await channel.purge(limit=100)
         poll_message = await post_poll(channel)
+        paused = False
         if poll_message:
             print("🌅 Morning poll posted automatically.")
 
@@ -130,6 +133,8 @@ async def on_ready():
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
         print("❌ Poll channel not found! Check POLL_CHANNEL_ID")
+        return
+    if paused == True:
         return
 
     async for msg in channel.history(limit=50):
@@ -156,7 +161,7 @@ async def on_reaction_add(reaction, user):
             await notify_owner()
             await resetAndWait()
 
-            if not running_mode:
+            if not running_mode and not paused:
                 poll_message = await post_poll(reaction.message.channel)
                 print("ℹ️ New poll posted automatically after threshold reached.")
 
@@ -171,6 +176,7 @@ async def resetpoll(ctx):
         return
 
     running_mode = False
+    paused = False
     await channel.purge(limit=100)
     poll_message = await post_poll(channel)
     if poll_message:
@@ -199,6 +205,37 @@ async def running(ctx):
         f"\nMentioning the role {role.mention}. Run !getnotified to get this role and be notified when the server is ready again. Run !stopnotified to remove the role."
     )
     await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
+
+@bot.command()
+async def pause(ctx):
+    global paused
+
+    paused = True
+    ctx.send("⏯️ You have paused the processes!")
+    
+    channel = bot.get_channel(CHANNEL_ID)
+    if channel is None:
+        await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
+    
+    await channel.purge(limit=100)
+    await channel.send("⏯️ Processes are now paused! Will resume once !unpause is called")
+
+@bot.command()
+async def unpause(ctx):
+    global paused
+
+    paused = False
+
+    await ctx.send("⏯️ You have unpaused the processes!")
+
+    channel = bot.get_channel(CHANNEL_ID)
+    if channel is None:
+        await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
+    
+    await channel.purge(limit=100)
+    poll_message = await post_poll(channel)
+    if poll_message:
+        await ctx.send("✅ Poll has been reset for the next round!")
 
 
 
