@@ -211,7 +211,7 @@ async def pause(ctx):
     global paused
 
     paused = True
-    ctx.send("⏯️ You have paused the processes!")
+    await ctx.send("⏯️ You have paused the processes!")
     
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
