@@ -127,21 +127,21 @@ async def resetAndWait():
 async def poll_scheduler():
     global poll_message, running_mode, paused
     channel = bot.get_channel(CHANNEL_ID)
-    if channel is None:
+    if channel is None or running_mode or paused:
         return
 
     now = datetime.now(MT).time()  # use Mountain Time
 
-    # Pause at 9 PM MT
-    if now.hour == POLL_PAUSE_HOUR:
+    # Pause at 9 or after PM MT
+    if now.hour >= POLL_PAUSE_HOUR:
         await channel.purge(limit=100)
         await channel.send(f"⏸️ Poll paused until {POLL_RESUME_HOUR:02d}:00 MT.")
         poll_message = None
         paused = True
         print("🌙 Poll paused for the night.")
 
-    # Resume at 8 AM MT
-    elif now.hour == POLL_RESUME_HOUR and not running_mode:
+    # Resume at 8 or before AM MT
+    elif now.hour >= POLL_RESUME_HOUR and not running_mode:
         await channel.purge(limit=100)
         poll_message = await post_poll(channel)
         paused = False
@@ -287,9 +287,9 @@ async def logStructure(ctx):
         await ctx.send(f"Incountered exception: {e}, when trying to convert to integer\nBe sure to enter integers and to have six arguments")
         return
     
-    if checkAvailable(firstX, firstZ, secondX, secondZ):
+    if await checkAvailable(firstX, firstZ, secondX, secondZ):
         await insertStructure(firstX, firstZ, secondX, secondZ, structureName, ownerName)
-        ctx.send(f"✅ Structure '{structureName}' by {ownerName} logged successfully at ({firstX}, {firstZ}) to ({secondX}, {secondZ})")
+        await ctx.send(f"✅ Structure '{structureName}' by {ownerName} logged successfully at ({firstX}, {firstZ}) to ({secondX}, {secondZ})")
     else:
         await ctx.send(f"❌ Coordinates ({firstX}, {firstZ}) to ({secondX}, {secondZ}) are already taken. Please choose different coordinates.")
 
