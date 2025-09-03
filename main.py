@@ -38,14 +38,18 @@ server_running = False
 # -------- Mountain Time --------
 MT = ZoneInfo("America/Denver")
 
-# -------- Aternos Login --------
-# -------- Aternos Login --------
+# New session-based login:
+ATERNOS_SESSION = os.getenv("ATERNOS_SESSION", "").strip()
+if not ATERNOS_SESSION:
+    raise RuntimeError("❌ Aternos session cookie not set!")
+
 atclient = Client()
 try:
-    atclient.login(ATERNOS_USER, ATERNOS_PASS)
+    atclient.login_session(ATERNOS_SESSION)
 except Exception as e:
-    raise RuntimeError(f"❌ Failed to log in to Aternos: {e}")
+    raise RuntimeError(f"❌ Failed to log in to Aternos via session: {e}")
 
+# List servers like before
 atservs = atclient.list_servers()
 if not atservs:
     raise RuntimeError("❌ No Aternos servers found!")
