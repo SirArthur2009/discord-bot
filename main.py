@@ -4,6 +4,7 @@ import asyncio
 from discord.ext import commands, tasks
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import sqlite3
 
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -34,6 +35,39 @@ paused = False
 # -------- Fixed Mountain Time --------
 MT = ZoneInfo("America/Denver")
 
+async def checkAvailable(firstX, firstZ, secondX, secondZ):
+    """Check if the coordinates are available for logging."""
+    
+    conn = sqlite3.connect('structures.db')
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM structures WHERE (firstX BETWEEN ? AND ?) AND (firstZ BETWEEN ? AND ?) OR (secondX BETWEEN ? AND ?) AND (secondZ BETWEEN ? AND ?)", 
+              (firstX, secondX, firstZ, secondZ, firstX, secondX, firstZ, secondZ))
+    count = c.fetchone()[0]
+    conn.close()
+    if count > 0:
+        print(f"❌ Coordinates ({firstX}, {firstZ}) to ({secondX}, {secondZ}) are already taken.")
+        return False
+    print(f"✅ Coordinates ({firstX}, {firstZ}) to ({secondX}, {secondZ}) are available.")
+    return True
+
+async def insertStructure(firstX, firstZ, secondX, secondZ, structureName, ownerName):
+    """Insert the structure into the database."""
+    # Placeholder for actual database insertion logic
+    # This should insert the structure data into your SQL database
+    print(f"Inserting structure: {structureName} by {ownerName} at ({firstX}, {firstZ}) to ({secondX}, {secondZ})")
+    # Example: Use sqlite3 to insert into a table
+    conn = sqlite3.connect('structures.db')
+    c = conn.cursor()
+
+    c.execute('''CREATE TABLE IF NOT EXISTS structures
+                 (firstX INTEGER, firstZ INTEGER, secondX INTEGER, secondZ INTEGER,
+                  structureName TEXT, ownerName TEXT)''')
+
+    c.execute("INSERT INTO structures (firstX, firstZ, secondX, secondZ, structureName, ownerName) VALUES (?, ?, ?, ?, ?, ?)",     
+              (firstX, firstZ, secondX, secondZ, structureName, ownerName))
+    
+    conn.commit()
+    conn.close()
 
 # -------- Post poll safely --------
 async def post_poll(channel):
@@ -237,7 +271,27 @@ async def unpause(ctx):
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
 
+@bot.command()
+async def logStructure(ctx):
+    """This logs structures into a SQL database for querying to know who has what where"""
+    structure = ctx.message.content.split(" ", 1)[1]  # Get everything after the command
+    structure = structure.split(", ")  # Split by comma and space
 
+    if not structure or len(structure) != 6:
+        return await ctx.send("Proper format: !logStructure firstX, firstZ, secondX, secondZ, structureName, ownerName")
+    
+    try: 
+        firstX, firstZ, secondX, secondZ = int(structure[0]), int(structure[1]), int(structure[2]), int(structure[3])
+        structureName, ownerName = structure[4], structure[5]
+    except Exception as e:
+        await ctx.send(f"Incountered exception: {e}, when trying to convert to integer\nBe sure to enter integers and to have six arguments")
+        return
+    
+    if checkAvailable(firstX, firstZ, secondX, secondZ):
+        await insertStructure(firstX, firstZ, secondX, secondZ, structureName, ownerName)
+        ctx.send(f"✅ Structure '{structureName}' by {ownerName} logged successfully at ({firstX}, {firstZ}) to ({secondX}, {secondZ})")
+    else:
+        await ctx.send(f"❌ Coordinates ({firstX}, {firstZ}) to ({secondX}, {secondZ}) are already taken. Please choose different coordinates.")
 
 # ----------------- getnotified -----------------
 @bot.command()
