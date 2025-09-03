@@ -39,11 +39,17 @@ server_running = False
 MT = ZoneInfo("America/Denver")
 
 # -------- Aternos Login --------
-atclient = Client.from_credentials(ATERNOS_USER, ATERNOS_PASS)
+# -------- Aternos Login --------
+atclient = Client()
+try:
+    atclient.login(ATERNOS_USER, ATERNOS_PASS)
+except Exception as e:
+    raise RuntimeError(f"❌ Failed to log in to Aternos: {e}")
+
 atservs = atclient.list_servers()
 if not atservs:
     raise RuntimeError("❌ No Aternos servers found!")
-myserv = atservs[0]
+myserv = atservs[1]
 
 # -------- Database Helpers --------
 async def checkAvailable(firstX, firstZ, secondX, secondZ):
