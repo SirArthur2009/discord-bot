@@ -50,7 +50,7 @@ except Exception as e:
     raise RuntimeError(f"❌ Failed to log in to Aternos via session: {e}")
 
 # List servers like before
-atservs = atclient.servers
+atservs = atclient.list_servers()
 if not atservs:
     raise RuntimeError("❌ No Aternos servers found!")
 myserv = atservs[1]
