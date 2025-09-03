@@ -1,2 +1,11 @@
+# Discord bot
 discord.py==2.3.2
-python_aternos
+
+# Aternos API
+python-aternos==3.0.6
+
+# Force dependencies to versions with wheels to avoid build issues
+aiohttp==3.8.5
+cloudscraper==1.2.71
+Js2Py==0.74
+lxml==4.9.2
