@@ -45,7 +45,7 @@ if not ATERNOS_SESSION:
 
 atclient = Client()
 try:
-    atclient.login_session(ATERNOS_SESSION)
+    atclient.login_with_session(ATERNOS_SESSION)
 except Exception as e:
     raise RuntimeError(f"❌ Failed to log in to Aternos via session: {e}")
 
