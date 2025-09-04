@@ -14,8 +14,8 @@ NOTIFY_ROLE_ID = int(os.getenv("NOTIFY_ROLE_ID", "0"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "2"))
 LOGIN_CREDENTIALS = os.getenv("LOGIN_CREDENTIALS").split(", ")
 
-NOTIFIED_ROLE_ID = int(os.getenv("NOTIFIED_ROLE_ID"))  # Role ID
-GENERAL_CHANNEL_ID = int(os.getenv("GENERAL_CHANNEL_ID"))  # Channel restriction by ID
+NOTIFIED_ROLE_ID = int(os.getenv("NOTIFIED_ROLE_ID", "0"))  # Role ID
+GENERAL_CHANNEL_ID = int(os.getenv("GENERAL_CHANNEL_ID", "0"))  # Channel restriction by ID
 POLL_PAUSE_HOUR = int(os.getenv("POLL_PAUSE_HOUR", "21"))  # 9 PM MT
 POLL_RESUME_HOUR = int(os.getenv("POLL_RESUME_HOUR", "8"))
 
