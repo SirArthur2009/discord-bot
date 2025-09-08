@@ -18,6 +18,7 @@ NOTIFIED_ROLE_ID = int(os.getenv("NOTIFIED_ROLE_ID", "0"))  # Role ID
 GENERAL_CHANNEL_ID = int(os.getenv("GENERAL_CHANNEL_ID", "0"))  # Channel restriction by ID
 POLL_PAUSE_HOUR = int(os.getenv("POLL_PAUSE_HOUR", "21"))  # 9 PM MT
 POLL_RESUME_HOUR = int(os.getenv("POLL_RESUME_HOUR", "8"))
+WATCH_CHANNEL_ID = int(os.getenv("WATCH_CHANNEL_ID", "0"))
 
 
 # -------- Intents and Bot --------
@@ -159,6 +160,16 @@ async def before_poll_scheduler():
 
 
 # -------- Bot Events --------
+@bot.event
+async def on_message(message):
+    if message.author.bot and message.channel.id == WATCH_CHANNEL_ID:
+        content = message.content.lower()
+        if ":green_circle:" in message.content and "the server has opened" in content:
+            await running(message.channel)
+        elif ":red_circle:" in message.content and "the server has closed" in content:
+            await resetpoll(message.channel)
+    await bot.process_commands(message)
+
 @bot.event
 async def on_ready():
     global poll_message
