@@ -162,9 +162,14 @@ async def before_poll_scheduler():
 # -------- Bot Events --------
 @bot.event
 async def on_message(message):
-    if message.channel.id == WATCH_CHANNEL_ID:
-        print(f"Author: {message.author} | ID: {message.author.id} | bot flag: {message.author.bot}")
+    if message.author.bot and message.channel.id == WATCH_CHANNEL_ID:
+        content = message.content.lower()
+        if ":green_circle:" in message.content and "the server has opened" in content:
+            await running(message.channel)
+        elif ":red_circle:" in message.content and "the server has closed" in content:
+            await resetpoll(message.channel)
     await bot.process_commands(message)
+
 
 
 @bot.event
