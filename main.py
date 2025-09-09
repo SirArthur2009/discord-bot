@@ -172,31 +172,19 @@ class DummyContext:
 # -------- Bot Events --------
 @bot.event
 async def on_message(message):
-    print(f"""Successful flag 1, {str(WATCH_CHANNEL_ID == message.channel.id)}, 
-    {str(message.author.bot)}, 
-    {str(":green_circle:" in message.content)}, 
-    {str("the server has opened" in message.content)},
-    Channel from: {message.channel},
-    """)
-    if message.embeds:
-        for embed in message.embeds:
-            print("Embed title:", embed.title)
-            print("Embed description:", embed.description)
-            print("Embed fields:", embed.fields)
+    #Check for shutdown message
+    if message.channel.id == WATCH_CHANNEL_ID and message.author.bot:
+    for embed in message.embeds:
+        if embed.description:
+            desc = embed.description.lower()
 
-    
-    if message.author.bot and message.channel.id == WATCH_CHANNEL_ID:
-        print("Succesful flag 2" + message.content)
+            if "the server has opened" in desc and ":green_circle:" in desc:
+                print("Detected server open event!")
+                await message.channel.send("!running")
 
-    # Only watch Discord-Linker messages in the watch channel
-    if message.author.bot and message.channel.id == WATCH_CHANNEL_ID:
-        content = message.content.lower()
-        dummy_ctx = DummyContext(message.channel)
-
-        if ":green_circle:" in message.content and "the server has opened" in content:
-            await running(dummy_ctx)
-        elif ":red_circle:" in message.content and "the server has shutdown" in content:
-            await resetpoll(dummy_ctx)
+            elif "the server has shutdown" in desc  and ":red_circle:" in desc:
+                print("Detected server shutdown event!")
+                await message.channel.send("!resetpoll")
 
     await bot.process_commands(message)
 
