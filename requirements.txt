@@ -1,6 +1,1 @@
 discord.py==2.3.2
-python-aternos==3.0.6
-aiohttp==3.8.5
-cloudscraper==1.2.71
-Js2Py==0.74
-lxml==4.9.2
