@@ -179,7 +179,7 @@ async def on_message(message):
 
         if ":green_circle:" in message.content and "the server has opened" in content:
             await running(dummy_ctx)
-        elif ":red_circle:" in message.content and "the server has closed" in content:
+        elif ":red_circle:" in message.content and "the server has shutdown" in content:
             await resetpoll(dummy_ctx)
 
     await bot.process_commands(message)
