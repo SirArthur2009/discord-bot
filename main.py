@@ -159,16 +159,31 @@ async def before_poll_scheduler():
     await asyncio.sleep(seconds_until_next_hour)
 
 
+# Helper to simulate context for commands
+class DummyContext:
+    def __init__(self, channel, author=None, guild=None):
+        self.channel = channel
+        self.author = author or channel.guild.me
+        self.guild = guild or channel.guild
+
+    async def send(self, content):
+        return await self.channel.send(content)
+
 # -------- Bot Events --------
 @bot.event
 async def on_message(message):
+    # Only watch Discord-Linker messages in the watch channel
     if message.author.bot and message.channel.id == WATCH_CHANNEL_ID:
         content = message.content.lower()
+        dummy_ctx = DummyContext(message.channel)
+
         if ":green_circle:" in message.content and "the server has opened" in content:
-            await running(message.channel)
+            await running(dummy_ctx)
         elif ":red_circle:" in message.content and "the server has closed" in content:
-            await resetpoll(message.channel)
+            await resetpoll(dummy_ctx)
+
     await bot.process_commands(message)
+
 
 
 
