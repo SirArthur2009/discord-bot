@@ -172,7 +172,7 @@ class DummyContext:
 # -------- Bot Events --------
 @bot.event
 async def on_message(message):
-    print("Successful flag 1, " + str(WATCH_CHANNEL_ID == message.channel.id) + ", " + str(message.author.bot) + ", " + str(":green_circle:" in message.content) + ", " + str("the server has opened" in content))
+    print("Successful flag 1, " + str(WATCH_CHANNEL_ID == message.channel.id) + ", " + str(message.author.bot) + ", " + str(":green_circle:" in message.content) + ", " + str("the server has opened" in message.content))
     
     if message.author.bot and message.channel.id == WATCH_CHANNEL_ID:
         print("Succesful flag 2" + message.content)
