@@ -174,17 +174,17 @@ class DummyContext:
 async def on_message(message):
     #Check for shutdown message
     if message.channel.id == WATCH_CHANNEL_ID and message.author.bot:
-    for embed in message.embeds:
-        if embed.description:
-            desc = embed.description.lower()
-
-            if "the server has opened" in desc and ":green_circle:" in desc:
-                print("Detected server open event!")
-                await message.channel.send("!running")
-
-            elif "the server has shutdown" in desc  and ":red_circle:" in desc:
-                print("Detected server shutdown event!")
-                await message.channel.send("!resetpoll")
+        for embed in message.embeds:
+            if embed.description:
+                desc = embed.description.lower()
+    
+                if "the server has opened" in desc and ":green_circle:" in desc:
+                    print("Detected server open event!")
+                    await message.channel.send("!running")
+    
+                elif "the server has shutdown" in desc  and ":red_circle:" in desc:
+                    print("Detected server shutdown event!")
+                    await message.channel.send("!resetpoll")
 
     await bot.process_commands(message)
 
