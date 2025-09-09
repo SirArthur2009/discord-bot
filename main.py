@@ -181,10 +181,14 @@ async def on_message(message):
     
                 if "the server has opened" in desc and ":green_circle:" in desc:
                     print("Detected server open event!")
+                    await message.delete()
+                    await message.channel.send("The server is running")
                     await running(dummyContext)
     
                 elif "the server has shutdown" in desc  and ":red_circle:" in desc:
                     print("Detected server shutdown event!")
+                    await message.delete()
+                    await message.channel.send("The server has been shutdown")
                     await resetpoll(dummyContext)
 
     await bot.process_commands(message)
