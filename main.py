@@ -6,6 +6,20 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import sqlite3
 
+# -------- Aternos API --------
+# Import
+from python_aternos import Client
+
+# Create object
+atclient = Client()
+
+# Log in
+# with username and password
+atclient.login(ATERNOS_USERNAME, ATERNOS_PASSWORD)
+
+# Get AternosAccount object
+aternos = atclient.account
+
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID", "0"))
@@ -19,6 +33,9 @@ GENERAL_CHANNEL_ID = int(os.getenv("GENERAL_CHANNEL_ID", "0"))  # Channel restri
 POLL_PAUSE_HOUR = int(os.getenv("POLL_PAUSE_HOUR", "21"))  # 9 PM MT
 POLL_RESUME_HOUR = int(os.getenv("POLL_RESUME_HOUR", "8"))
 WATCH_CHANNEL_ID = int(os.getenv("WATCH_CHANNEL_ID", "0"))
+
+ATERNOS_USERNAME = ""
+ATERNOS_PASSWORD = ""
 
 
 # -------- Intents and Bot --------
@@ -233,6 +250,13 @@ async def on_reaction_add(reaction, user):
                 print("ℹ️ New poll posted automatically after threshold reached.")
 
 # -------- Commands --------
+
+# Start Server
+@bot.command()
+async def startserver(ctx):
+    ultimateSurvival.start()
+
+# Reset Poll
 @bot.command()
 async def resetpoll(ctx):
     global poll_message, running_mode
@@ -249,7 +273,7 @@ async def resetpoll(ctx):
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
 
-
+# Mark as running (deprecate and add to !startserver)
 @bot.command()
 async def running(ctx):
     global running_mode, poll_message
@@ -273,6 +297,7 @@ async def running(ctx):
     )
     await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
 
+# Pause
 @bot.command()
 async def pause(ctx):
     global paused
@@ -287,6 +312,7 @@ async def pause(ctx):
     await channel.purge(limit=100)
     await channel.send("⏯️ Processes are now paused! Will resume once !unpause is called")
 
+# Unpause
 @bot.command()
 async def unpause(ctx):
     global paused
@@ -304,6 +330,7 @@ async def unpause(ctx):
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
 
+# Log Structure
 @bot.command()
 async def logStructure(ctx):
     """This logs structures into a SQL database for querying to know who has what where"""
