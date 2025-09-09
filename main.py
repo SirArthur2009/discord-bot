@@ -176,15 +176,16 @@ async def on_message(message):
     if message.channel.id == WATCH_CHANNEL_ID and message.author.bot:
         for embed in message.embeds:
             if embed.description:
+                dummyContext = DummyContext(message.channel)
                 desc = embed.description.lower()
     
                 if "the server has opened" in desc and ":green_circle:" in desc:
                     print("Detected server open event!")
-                    await message.channel.send("!running")
+                    await running(dummyContext)
     
                 elif "the server has shutdown" in desc  and ":red_circle:" in desc:
                     print("Detected server shutdown event!")
-                    await message.channel.send("!resetpoll")
+                    await resetpoll(dummyContext)
 
     await bot.process_commands(message)
 
