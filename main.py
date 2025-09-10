@@ -199,7 +199,7 @@ async def on_message(message):
                 try:
                     desc = desc.split("has executed the command")
                     if approvedCommands not in desc[1]:
-                        serverChat.send(f"/ban user:{desc[0][8:]} reason:Unapproved usage of commands
+                        serverChat.send(f"/ban user:{desc[0][8:]} reason:Unapproved usage of commands")
 
     await bot.process_commands(message)
 
