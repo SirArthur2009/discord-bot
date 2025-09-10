@@ -20,6 +20,8 @@ POLL_PAUSE_HOUR = int(os.getenv("POLL_PAUSE_HOUR", "21"))  # 9 PM MT
 POLL_RESUME_HOUR = int(os.getenv("POLL_RESUME_HOUR", "8"))
 WATCH_CHANNEL_ID = int(os.getenv("WATCH_CHANNEL_ID", "0"))
 
+SERVER_CHAT_CHANNEL_ID = int(os.getenv("SERVER_CHAT_CHANNEL_ID", "0"))
+
 
 # -------- Intents and Bot --------
 intents = discord.Intents.default()
@@ -178,17 +180,18 @@ async def on_message(message):
             if embed.description:
                 dummyContext = DummyContext(message.channel)
                 desc = embed.description.lower()
+                serverChat = bot.get_channel(SERVER_CHAT_CHANNEL_ID)
     
                 if "the server has opened" in desc and ":green_circle:" in desc:
                     print("Detected server open event!")
                     await message.delete()
-                    await message.channel.send("The server is running")
+                    await serverChat.send("The server is running")
                     await running(dummyContext)
     
                 elif "the server has shutdown" in desc  and ":red_circle:" in desc:
                     print("Detected server shutdown event!")
-                    await message.channel.purge(limit=200)
-                    await message.channel.send("The server has been shutdown")
+                    await serverChat.purge(limit=200)
+                    await serverChat.send("The server has been shutdown")
                     await resetpoll(dummyContext)
 
     await bot.process_commands(message)
