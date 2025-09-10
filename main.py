@@ -22,6 +22,8 @@ WATCH_CHANNEL_ID = int(os.getenv("WATCH_CHANNEL_ID", "0"))
 
 SERVER_CHAT_CHANNEL_ID = int(os.getenv("SERVER_CHAT_CHANNEL_ID", "0"))
 
+# -------- Extras ---------
+approvedCommands = ["freecam", "op", "deop"]
 
 # -------- Intents and Bot --------
 intents = discord.Intents.default()
@@ -193,6 +195,11 @@ async def on_message(message):
                     await serverChat.purge(limit=200)
                     await serverChat.send("The server has been shutdown")
                     await resetpoll(dummyContext)
+
+                try:
+                    desc = desc.split("has executed the command")
+                    if approvedCommands not in desc[1]:
+                        serverChat.send(f"/ban user:{desc[0][8:]} reason:Unapproved usage of commands
 
     await bot.process_commands(message)
 
