@@ -81,7 +81,7 @@ async def post_poll(channel):
     try:
         # Delete only the bot's last poll
         async for msg in channel.history(limit=50):
-            if msg.author == bot.user and "React 👍 to vote" in msg.content:
+            if msg.author == bot.user and ("React 👍 to vote" in msg.content or "Server is running!" in msg.content):
                 await msg.delete()
         msg = await channel.send("React 👍 to vote for server start!")
         await msg.add_reaction("👍")
