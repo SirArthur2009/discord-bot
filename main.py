@@ -191,6 +191,7 @@ async def on_message(message):
     
                 elif "the server has shutdown" in desc  and ":red_circle:" in desc:
                     print("Detected server shutdown event!")
+                    await message.delete()
                     await serverChat.purge(limit=200)
                     await serverChat.send("The server has been shutdown")
                     await resetpoll(dummyContext)
