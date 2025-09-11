@@ -83,7 +83,7 @@ async def post_poll(channel):
     try:
         # Delete only the bot's last poll
         async for msg in channel.history(limit=50):
-            if msg.author == bot.user and ("React 👍 to vote" in msg.content or "Server is running!" in msg.content):
+            if msg.author == bot.user and "React 👍 to vote" in msg.content:
                 await msg.delete()
         msg = await channel.send("React 👍 to vote for server start!")
         await msg.add_reaction("👍")
@@ -162,7 +162,6 @@ async def before_poll_scheduler():
     print(f"⏳ Waiting {seconds_until_next_hour} seconds to align scheduler to the hour.")
     await asyncio.sleep(seconds_until_next_hour)
 
-
 # Helper to simulate context for commands
 class DummyContext:
     def __init__(self, channel, author=None, guild=None):
@@ -221,9 +220,9 @@ async def on_ready():
         return
 
     async for msg in channel.history(limit=50):
-        if "React 👍 to vote for server start!" in msg.content:
+        if "React 👍 to vote for server start!" in msg.content or "Server is running!" in msg.content:
             poll_message = msg
-            print(f"ℹ️ Found existing poll with ID {poll_message.id}")
+            print(f"ℹ️ Found existing message with ID {poll_message.id}")
             break
 
     if poll_message is None:
