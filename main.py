@@ -199,7 +199,7 @@ async def on_message(message):
                 try:
                     desc = desc.split("has executed the command")
                     if approvedCommands not in desc[1]:
-                        await serverChat.send(f"/ban user:{desc[0][8:]} reason:Unapproved usage of commands")
+                        await bot.get_channel(WATCH_CHANNEL_ID).send(f"/ban user:{desc[0][8:]} reason:Unapproved usage of commands")
                 except:
                     await serverChat.send("Unable to moderate")
 
