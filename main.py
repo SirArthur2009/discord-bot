@@ -40,40 +40,6 @@ paused = False
 # -------- Fixed Mountain Time --------
 MT = ZoneInfo("America/Denver")
 
-async def checkAvailable(firstX, firstZ, secondX, secondZ):
-    """Check if the coordinates are available for logging."""
-    
-    conn = sqlite3.connect('structures.db')
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM structures WHERE (firstX BETWEEN ? AND ?) AND (firstZ BETWEEN ? AND ?) OR (secondX BETWEEN ? AND ?) AND (secondZ BETWEEN ? AND ?)", 
-              (firstX, secondX, firstZ, secondZ, firstX, secondX, firstZ, secondZ))
-    count = c.fetchone()[0]
-    conn.close()
-    if count > 0:
-        print(f"❌ Coordinates ({firstX}, {firstZ}) to ({secondX}, {secondZ}) are already taken.")
-        return False
-    print(f"✅ Coordinates ({firstX}, {firstZ}) to ({secondX}, {secondZ}) are available.")
-    return True
-
-async def insertStructure(firstX, firstZ, secondX, secondZ, structureName, ownerName):
-    """Insert the structure into the database."""
-    # Placeholder for actual database insertion logic
-    # This should insert the structure data into your SQL database
-    print(f"Inserting structure: {structureName} by {ownerName} at ({firstX}, {firstZ}) to ({secondX}, {secondZ})")
-    # Example: Use sqlite3 to insert into a table
-    conn = sqlite3.connect('structures.db')
-    c = conn.cursor()
-
-    c.execute('''CREATE TABLE IF NOT EXISTS structures
-                 (firstX INTEGER, firstZ INTEGER, secondX INTEGER, secondZ INTEGER,
-                  structureName TEXT, ownerName TEXT)''')
-
-    c.execute("INSERT INTO structures (firstX, firstZ, secondX, secondZ, structureName, ownerName) VALUES (?, ?, ?, ?, ?, ?)",     
-              (firstX, firstZ, secondX, secondZ, structureName, ownerName))
-    
-    conn.commit()
-    conn.close()
-
 # -------- Post poll safely --------
 async def post_poll(channel):
     global poll_message
@@ -205,9 +171,6 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-
-
-
 @bot.event
 async def on_ready():
     global poll_message
@@ -264,7 +227,6 @@ async def resetpoll(ctx):
     poll_message = await post_poll(channel)
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
-
 
 @bot.command()
 async def running(ctx):
