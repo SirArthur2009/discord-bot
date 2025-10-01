@@ -338,7 +338,7 @@ async def logStructure(ctx):
     
     if checkAvailable(firstX, firstZ, secondX, secondZ):
         await insertStructure(firstX, firstZ, secondX, secondZ, structureName, ownerName)
-        ctx.send(f"✅ Structure '{structureName}' by {ownerName} logged successfully at ({firstX}, {firstZ}) to ({secondX}, {secondZ})")
+        await ctx.send(f"✅ Structure '{structureName}' by {ownerName} logged successfully at ({firstX}, {firstZ}) to ({secondX}, {secondZ})")
     else:
         await ctx.send(f"❌ Coordinates ({firstX}, {firstZ}) to ({secondX}, {secondZ}) are already taken. Please choose different coordinates.")
 
