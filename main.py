@@ -61,7 +61,7 @@ async def post_poll(channel):
         return None
 
 # -------- Notify owners via mention roles --------
-async def notify_owner():
+async def notify_owner(whoAskedName):
     thread = bot.get_channel(NOTIFY_THREAD_ID)
     channel = bot.get_channel(CHANNEL_ID)
     role_mention = f"<@&{NOTIFY_ROLE_ID}>"
@@ -71,7 +71,7 @@ async def notify_owner():
         return
 
     try:
-        await thread.send(f"{role_mention} ✅ Enough votes have been reached! Time to start the server!")
+        await thread.send(f"{role_mention} {whoAskedName} has requested to start the server. Please start it when you can. Thank you!")
         await channel.send("📧 Sent notification to owners of server.")
         print("📧 Notification sent in Discord thread!")
     except Exception as e:
@@ -206,7 +206,7 @@ async def on_reaction_add(reaction, user):
         if reaction.count >= VOTE_THRESHOLD:
             DaUser = await bot.fetch_user(user.id)  # Fetch the user by ID
             print(f"{DaUser.name} asked to start the poll")
-            await notify_owner()
+            await notify_owner(DaUser.name)
             await resetAndWait()
 
             if not running_mode and not paused:
