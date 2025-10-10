@@ -205,7 +205,7 @@ async def on_reaction_add(reaction, user):
     if reaction.message.id == poll_message.id and str(reaction.emoji) == "👍":
         if reaction.count >= VOTE_THRESHOLD:
             DaUser = await bot.fetch_user(user.id)  # Fetch the user by ID
-            await print(f"{DaUser.name} asked to start the poll")
+            print(f"{DaUser.name} asked to start the poll")
             await notify_owner()
             await resetAndWait()
 
