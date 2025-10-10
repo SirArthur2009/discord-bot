@@ -198,13 +198,13 @@ async def on_ready():
     print(f"⏰ Scheduler running in Mountain Time (pause {POLL_PAUSE_HOUR:02d}:00, resume {POLL_RESUME_HOUR:02d}:00)")
 
 @bot.event
-async def on_reaction_add(reaction, user, user_id:int):
+async def on_reaction_add(reaction, user):
     global poll_message, running_mode
     if user.bot or poll_message is None or running_mode:
         return
     if reaction.message.id == poll_message.id and str(reaction.emoji) == "👍":
         if reaction.count >= VOTE_THRESHOLD:
-            DaUser = await bot.fetch_user(user_id)  # Fetch the user by ID
+            DaUser = await bot.fetch_user(user.id)  # Fetch the user by ID
             await print(f"{DaUser.name} asked to start the poll")
             await notify_owner()
             await resetAndWait()
