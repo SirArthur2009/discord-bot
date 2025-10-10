@@ -23,7 +23,7 @@ WATCH_CHANNEL_ID = int(os.getenv("WATCH_CHANNEL_ID", "0"))
 SERVER_CHAT_CHANNEL_ID = int(os.getenv("SERVER_CHAT_CHANNEL_ID", "0"))
 
 # -------- Extras ---------
-approvedCommands = ["freecam", "op", "deop"]
+unapprovedCommands = ["give"]
 
 # -------- Intents and Bot --------
 intents = discord.Intents.default()
@@ -152,22 +152,15 @@ async def on_message(message):
                 if "the server has opened" in desc and ":green_circle:" in desc:
                     print("Detected server open event!")
                     await message.delete()
-                    await serverChat.send("The server is running")
+                    await serverChat.send("✅ The server is running")
                     await running(dummyContext)
     
                 elif "the server has shutdown" in desc  and ":red_circle:" in desc:
                     print("Detected server shutdown event!")
                     await message.delete()
                     await serverChat.purge(limit=200)
-                    await serverChat.send("The server has been shutdown")
+                    await serverChat.send("❌ The server has been shutdown")
                     await resetpoll(dummyContext)
-
-                try:
-                    desc = desc.split("has executed the command")
-                    if approvedCommands not in desc[1]:
-                        await bot.get_channel(WATCH_CHANNEL_ID).send(f"/ban user:{desc[0][8:]} reason:Unapproved usage of commands")
-                except:
-                    await serverChat.send("Unable to moderate")
 
     await bot.process_commands(message)
 
@@ -283,28 +276,6 @@ async def unpause(ctx):
     poll_message = await post_poll(channel)
     if poll_message:
         await ctx.send("✅ Poll has been reset for the next round!")
-
-@bot.command()
-async def logStructure(ctx):
-    """This logs structures into a SQL database for querying to know who has what where"""
-    structure = ctx.message.content.split(" ", 1)[1]  # Get everything after the command
-    structure = structure.split(", ")  # Split by comma and space
-
-    if not structure or len(structure) != 6:
-        return await ctx.send("Proper format: !logStructure firstX, firstZ, secondX, secondZ, structureName, ownerName")
-    
-    try: 
-        firstX, firstZ, secondX, secondZ = int(structure[0]), int(structure[1]), int(structure[2]), int(structure[3])
-        structureName, ownerName = structure[4], structure[5]
-    except Exception as e:
-        await ctx.send(f"Incountered exception: {e}, when trying to convert to integer\nBe sure to enter integers and to have six arguments")
-        return
-    
-    if checkAvailable(firstX, firstZ, secondX, secondZ):
-        await insertStructure(firstX, firstZ, secondX, secondZ, structureName, ownerName)
-        await ctx.send(f"✅ Structure '{structureName}' by {ownerName} logged successfully at ({firstX}, {firstZ}) to ({secondX}, {secondZ})")
-    else:
-        await ctx.send(f"❌ Coordinates ({firstX}, {firstZ}) to ({secondX}, {secondZ}) are already taken. Please choose different coordinates.")
 
 # ----------------- getnotified -----------------
 @bot.command()
