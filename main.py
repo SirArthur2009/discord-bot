@@ -89,7 +89,7 @@ async def resetAndWait():
     # Only do cooldown if not in running mode
     if not running_mode:
         await channel.purge(limit=100)
-        cooldown_message = await channel.send("⏳ Poll is on cooldown. Please wait 1 minute before voting again.")
+        cooldown_message = await channel.send("⏳ Poll is on cooldown. Please wait 2 minute before voting again.")
         await asyncio.sleep(120)
         await cooldown_message.delete()
 
