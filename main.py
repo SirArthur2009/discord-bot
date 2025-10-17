@@ -41,21 +41,54 @@ paused = False
 MT = ZoneInfo("America/Denver")
 
 # -------- Post poll safely --------
+from discord.ui import Button, View
+
 async def post_poll(channel):
+    """Post a poll with a Start Server button"""
     global poll_message
+
     if channel is None:
-        print("❌ Poll channel not found! Check POLL_CHANNEL_ID")
+        print("❌ Poll channel not found!")
         return None
+
     try:
-        # Delete only the bot's last poll
+        # Delete previous poll messages
         async for msg in channel.history(limit=50):
-            if msg.author == bot.user and "React 👍 to vote" in msg.content:
+            if msg.author == bot.user and "Server Start Poll" in msg.content:
                 await msg.delete()
-        msg = await channel.send("React 👍 to vote for server start!")
-        await msg.add_reaction("👍")
-        print(f"✅ Poll posted with ID {msg.id}")
+
+        # Create button
+        button = Button(label="Start Server", style=discord.ButtonStyle.primary)
+
+        async def button_callback(interaction):
+            user = interaction.user
+            # Show typing indicator while "thinking"
+            async with channel.typing():
+                await asyncio.sleep(1)  # simulate thinking
+
+            await notify_owner(user.name)
+            await interaction.response.edit_message(
+                content="⏳ Cooldown: wait 2 minutes before starting again...",
+                view=None  # remove button during cooldown
+            )
+
+            # Wait 2 minutes
+            await asyncio.sleep(120)
+
+            # Reset poll (button)
+            await post_poll(channel)
+
+        button.callback = button_callback
+
+        view = View()
+        view.add_item(button)
+
+        # Send the poll message
+        msg = await channel.send("📢 **Server Start Poll**\nClick the button to notify owners!", view=view)
         poll_message = msg
+        print(f"✅ Poll posted with button (ID {msg.id})")
         return msg
+
     except Exception as e:
         print(f"❌ Failed to post poll: {e}")
         return None
