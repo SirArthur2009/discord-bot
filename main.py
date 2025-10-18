@@ -308,7 +308,7 @@ async def on_message(message):
                         await serverChat.send("❌ The server has been shutdown")
                     await resetpoll(dummyContext)
 
-                checkCommands(message)
+                await checkCommands(message)
 
     await bot.process_commands(message)
 
