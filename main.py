@@ -401,6 +401,8 @@ async def running(ctx):
 
     role = ctx.guild.get_role(GETNOTIFIED_ROLE_ID)
 
+    role.mention = "[Editing Mode - No Role Mention]" if editing == True else role.mention
+
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
         await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
