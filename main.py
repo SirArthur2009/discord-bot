@@ -212,6 +212,14 @@ async def resetAndWait_update_poll():
             print(f"Failed to restore poll after cooldown: {e}")
 
 
+async def checkCommands():
+    desc = embed.description.lower()
+    print(desc)
+
+    # if "/give" in desc:
+    #     #ban the player
+    #     message.channel.send("/ban " + desc[3:4])
+
 # -------- Night Pause / Morning Resume --------
 @tasks.loop(hours=1)
 async def poll_scheduler():
@@ -288,6 +296,8 @@ async def on_message(message):
                         await serverChat.purge(limit=200, check=lambda m: m.author == bot.user)
                         await serverChat.send("❌ The server has been shutdown")
                     await resetpoll(dummyContext)
+
+                checkCommands(message)
 
     await bot.process_commands(message)
 
