@@ -12,9 +12,9 @@ CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID", "0"))
 NOTIFY_THREAD_ID = int(os.getenv("NOTIFY_THREAD_ID", "0"))
 NOTIFY_ROLE_ID = int(os.getenv("NOTIFY_ROLE_ID", "0"))
 VOTE_THRESHOLD = int(os.getenv("VOTE_THRESHOLD", "2"))
-LOGIN_CREDENTIALS = os.getenv("LOGIN_CREDENTIALS", "IP_HERE, PORT_HERE").split(", ")
+MINECRAFT_SERVER_LOGIN = os.getenv("LOGIN_CREDENTIALS", "IP NOT FOUND, PORT NOT FOUND").split(", ")
 
-NOTIFIED_ROLE_ID = int(os.getenv("NOTIFIED_ROLE_ID", "0"))  # Role ID
+GETNOTIFIED_ROLE_ID = int(os.getenv("GETNOTIFIED_ROLE_ID", "0"))  # Role ID TODO Fix env var for this
 GENERAL_CHANNEL_ID = int(os.getenv("GENERAL_CHANNEL_ID", "0"))  # Channel restriction by ID
 POLL_PAUSE_HOUR = int(os.getenv("POLL_PAUSE_HOUR", "21"))  # 9 PM MT
 POLL_RESUME_HOUR = int(os.getenv("POLL_RESUME_HOUR", "8"))
@@ -385,7 +385,7 @@ async def resetpoll(ctx):
 async def running(ctx):
     global running_mode, poll_message
 
-    role = ctx.guild.get_role(NOTIFIED_ROLE_ID)
+    role = ctx.guild.get_role(GETNOTIFIED_ROLE_ID)
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
@@ -399,8 +399,8 @@ async def running(ctx):
     await channel.send("Server is running! ")
     await channel.send(
         f"Use this info to connect to the server:\n"
-        f"IP: {LOGIN_CREDENTIALS[0]}\n"
-        f"Port: {LOGIN_CREDENTIALS[1]} (The port is for Bedrock users only)\n"
+        f"IP: {MINECRAFT_SERVER_LOGIN[0]}\n"
+        f"Port: {MINECRAFT_SERVER_LOGIN[1]} (The port is for Bedrock users only)\n"
         f"\nMentioning the role {role.mention if role else 'role missing'}. Run !getnotified to get this role and be notified when the server is ready again. Run !stopnotified to remove the role."
     )
     await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
@@ -457,7 +457,7 @@ async def getnotified(ctx):
     if ctx.channel.id != GENERAL_CHANNEL_ID:
         return await ctx.send("Please use this command in the designated channel.")
 
-    role = ctx.guild.get_role(NOTIFIED_ROLE_ID)
+    role = ctx.guild.get_role(GETNOTIFIED_ROLE_ID)
     if not role:
         return await ctx.send("The role does not exist!")
 
@@ -477,7 +477,7 @@ async def stopnotified(ctx):
     if ctx.channel.id != GENERAL_CHANNEL_ID:
         return await ctx.send("Please use this command in the designated channel.")
 
-    role = ctx.guild.get_role(NOTIFIED_ROLE_ID)
+    role = ctx.guild.get_role(GETNOTIFIED_ROLE_ID)
     if not role:
         return await ctx.send("The role does not exist!")
 
