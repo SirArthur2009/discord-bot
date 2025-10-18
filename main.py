@@ -65,22 +65,22 @@ class PollView(discord.ui.View):
 
         user_id = interaction.user.id
 
-        # Ensure we have a poll message and vote set
+        # Ensure poll is active
         if poll_message is None:
             await interaction.response.send_message("Poll is not active at the moment.", ephemeral=True)
             return
 
+        # Track votes per message
         votes = poll_votes.setdefault(poll_message.id, set())
 
         if user_id in votes:
-            # Toggle behavior: remove vote if user already voted
             votes.remove(user_id)
             await interaction.response.send_message("Your vote has been removed.", ephemeral=True)
         else:
             votes.add(user_id)
             await interaction.response.send_message("Thanks — your vote has been counted!", ephemeral=True)
 
-        # Update the poll message to show current vote count
+        # Update poll message with vote count
         try:
             vote_count = len(votes)
             content = f"Click the button to vote for server start!\n\nVotes: **{vote_count}** / {VOTE_THRESHOLD}"
@@ -88,10 +88,10 @@ class PollView(discord.ui.View):
         except Exception as e:
             print(f"Failed to update poll message with vote count: {e}")
 
-        # If threshold reached, trigger notify + cooldown flow
+        # Threshold reached → notify owners
         if len(votes) >= VOTE_THRESHOLD:
-            # Show processing / three dots indicator and disable the button
             try:
+                # Disable button and show processing
                 button.disabled = True
                 await poll_message.edit(content="Processing request... • • •", view=self)
             except Exception as e:
@@ -100,13 +100,18 @@ class PollView(discord.ui.View):
             whoAskedName = interaction.user.name
             await notify_owner(whoAskedName)
 
-            # Run reset/cooldown flow (re-uses existing resetAndWait behavior but updates message instead of posting new)
+            # Update poll message to indicate owners notified
+            try:
+                await poll_message.edit(content="✅ Owners have been notified! Poll will reset shortly...", view=self)
+            except Exception as e:
+                print(f"Failed to update poll message after notifying owners: {e}")
+
+            # Run reset/cooldown on the same message
             await resetAndWait_update_poll()
 
-            # After cooldown, re-enable button and reset votes (unless running_mode changed)
+            # After cooldown, reset votes and re-enable button if not running
             if poll_message and not running_mode and not paused:
                 poll_votes[poll_message.id] = set()
-                # re-create view and enable button
                 for item in self.children:
                     if isinstance(item, discord.ui.Button):
                         item.disabled = False
