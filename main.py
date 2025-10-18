@@ -46,14 +46,13 @@ poll_votes: Dict[int, Set[int]] = {}
 MT = ZoneInfo("America/Denver")
 
 
-# -------- Poll UI View & Button --------
 class PollView(discord.ui.View):
     def __init__(self, message_id: int | None = None):
         super().__init__(timeout=None)  # persistent view
         self.message_id = message_id
 
     @discord.ui.button(label="Vote to start", style=discord.ButtonStyle.primary, custom_id="poll:vote_button")
-    async def vote_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def vote_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         global poll_message, poll_votes, running_mode, paused
 
         # Prevent votes if we're paused or running
@@ -98,8 +97,6 @@ class PollView(discord.ui.View):
             except Exception as e:
                 print(f"Failed to show processing state: {e}")
 
-            # Acknowledge the interaction if not already (we already responded ephemeral above)
-            # Notify owners and run cooldown in background but keep user informed
             whoAskedName = interaction.user.name
             await notify_owner(whoAskedName)
 
