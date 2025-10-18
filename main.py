@@ -152,9 +152,12 @@ async def post_poll(channel: discord.TextChannel):
 
 
 # -------- Notify owners via mention roles --------
-async def notify_owner(whoAskedName):
+async def notify_owner(whoAskedName: str):
+    """
+    Notify owners by posting only to the notify thread.
+    Does NOT send a confirmation message to the poll channel.
+    """
     thread = bot.get_channel(NOTIFY_THREAD_ID)
-    channel = bot.get_channel(CHANNEL_ID)
     role_mention = f"<@&{NOTIFY_ROLE_ID}>"
 
     if thread is None:
@@ -163,8 +166,6 @@ async def notify_owner(whoAskedName):
 
     try:
         await thread.send(f"{role_mention} {whoAskedName} has requested to start the server. Please start it when you can. Thank you!")
-        if channel:
-            await channel.send("📧 Sent notification to owners of server.")
         print("📧 Notification sent in Discord thread!")
     except Exception as e:
         print(f"❌ Failed to send notification in thread: {e}")
@@ -173,30 +174,26 @@ async def notify_owner(whoAskedName):
 # -------- Reset and wait (updates poll message instead of re-posting) --------
 async def resetAndWait_update_poll():
     """
-    This function behaves like your old resetAndWait but edits the poll message to show cooldown
-    and disables the button instead of posting new messages. Sleeps for the cooldown period and then restores.
+    Edit the existing poll message to show a cooldown, disable its button,
+    wait the cooldown, then restore the poll message (re-enable buttons).
+    No new messages are posted and no channel purge is performed.
     """
     global poll_message, running_mode, paused, poll_votes
 
     if poll_message is None:
-        # If no poll message, nothing to update. Just perform the old purge + cooldown as fallback.
-        channel = bot.get_channel(CHANNEL_ID)
-        if channel:
-            await channel.purge(limit=200, check=lambda m: m.author == bot.user)
-            cooldown_message = await channel.send("⏳ Poll is on cooldown. Please wait 2 minutes before voting again.")
-            await asyncio.sleep(120)
-            await cooldown_message.delete()
+        # fallback: nothing to edit; just log and return
+        print("resetAndWait_update_poll called but poll_message is None — nothing to update.")
         return
 
     channel = poll_message.channel
 
-    # Disable only the bot's buttons by editing the view
+    # Create a view with disabled buttons to show cooldown state
     view = PollView(message_id=poll_message.id)
-    # create view and then disable children
     for item in view.children:
         if isinstance(item, discord.ui.Button):
             item.disabled = True
 
+    # Show cooldown message on the poll itself
     try:
         await poll_message.edit(content="⏳ Poll is on cooldown. Please wait 2 minutes before voting again.", view=view)
     except Exception as e:
@@ -205,13 +202,25 @@ async def resetAndWait_update_poll():
     # Wait cooldown (2 minutes to preserve original behavior)
     await asyncio.sleep(120)
 
-    # Remove the cooldown text and (if not running_mode) restore vote prompt
+    # After cooldown, if still not running and not paused, restore poll text and view
     if not running_mode and not paused:
-        # re-enable the button by creating a fresh view; poll_votes reset will be handled by post_poll
         try:
-            await post_poll(channel)
+            # Reset vote tracking for this message id
+            poll_votes[poll_message.id] = set()
+            # Re-create active view with enabled button(s)
+            restored_view = PollView(message_id=poll_message.id)
+            # Register persistent view so interactions still work
+            bot.add_view(restored_view, message_id=poll_message.id)
+            await poll_message.edit(content=f"Click the button to vote for server start!\n\nVotes: **0** / {VOTE_THRESHOLD}", view=restored_view)
         except Exception as e:
             print(f"Failed to restore poll after cooldown: {e}")
+    else:
+        # If running_mode became True or paused, leave the poll disabled and indicate state
+        try:
+            status_text = "Server is running — poll paused." if running_mode else "Poll paused."
+            await poll_message.edit(content=f"⏯️ {status_text}", view=view)
+        except Exception as e:
+            print(f"Failed to update poll state after cooldown: {e}")
 
 
 async def checkCommands():
