@@ -6,6 +6,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Set, Dict
 
+editing = False
+
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("POLL_CHANNEL_ID", "0"))
@@ -153,12 +155,13 @@ async def post_poll(channel: discord.TextChannel):
 
 # -------- Notify owners via mention roles --------
 async def notify_owner(whoAskedName: str):
+    global editing
     """
     Notify owners by posting only to the notify thread.
     Does NOT send a confirmation message to the poll channel.
     """
     thread = bot.get_channel(NOTIFY_THREAD_ID)
-    role_mention = f"<@&{NOTIFY_ROLE_ID}>"
+    role_mention = f"<@&{NOTIFY_ROLE_ID}>" if editing == False else "[Editing Mode - No Role Mention]"
 
     if thread is None:
         print("❌ Notify thread not found! Check NOTIFY_THREAD_ID")
@@ -224,7 +227,7 @@ async def resetAndWait_update_poll():
 
 
 async def checkCommands(embedMessage):
-    desc = embedMessage.description.lower()
+    desc = embedMessage.embeds.description.lower()
     print(desc)
 
     # if "/give" in desc:
