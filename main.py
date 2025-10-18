@@ -223,8 +223,8 @@ async def resetAndWait_update_poll():
             print(f"Failed to update poll state after cooldown: {e}")
 
 
-async def checkCommands():
-    desc = embed.description.lower()
+async def checkCommands(embedMessage):
+    desc = embedMessage.description.lower()
     print(desc)
 
     # if "/give" in desc:
