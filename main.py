@@ -6,7 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Set, Dict
 
-editing = False
+editing = os.getenv("EDITING_MODE", "false").lower() == "true"
 
 # -------- Load environment variables safely --------
 TOKEN = os.getenv("DISCORD_TOKEN")
