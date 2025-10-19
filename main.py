@@ -1,46 +1,27 @@
-# main.py (replace the whole file)
+# discord-bot/main.py
 import os
 import sys
 from dotenv import load_dotenv
 
-# Determine locations
+# Ensure repo root and discord-bot subdir are on sys.path
 THIS_FILE = os.path.abspath(__file__)
-REPO_ROOT = os.path.dirname(THIS_FILE)            # e.g. /app
-ALT_PROJECT_DIR = os.path.join(REPO_ROOT, "discord-bot")  # e.g. /app/discord-bot
+REPO_ROOT = os.path.dirname(THIS_FILE)
+ALT_PROJECT_DIR = os.path.join(REPO_ROOT, "discord-bot")
 
-# Ensure repo root is on sys.path
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
-
-# If there's a 'discord-bot' subfolder, also add that (common when you keep project files in that folder)
 if os.path.isdir(ALT_PROJECT_DIR) and ALT_PROJECT_DIR not in sys.path:
     sys.path.insert(0, ALT_PROJECT_DIR)
 
-# Load local .env only for development; Railway env vars override process env.
+# Load local .env only for dev; Railway env vars override process env.
 load_dotenv(override=False)
 
 from bot_app import bot
-
-# Now imports from packages under either REPO_ROOT or discord-bot/ should succeed
-from cogs.poll import PollCog
-from cogs.server import ServerCog
-from cogs.roles import RolesCog
-from cogs.pause import PauseCog
-from cogs.scheduler import SchedulerCog
-from cogs.watcher import WatcherCog
-
-# Register cogs
-bot.add_cog(PollCog(bot))
-bot.add_cog(ServerCog(bot))
-bot.add_cog(RolesCog(bot))
-bot.add_cog(PauseCog(bot))
-bot.add_cog(SchedulerCog(bot))
-bot.add_cog(WatcherCog(bot))
+import os
 
 # on_ready: re-hook any existing poll message so buttons keep working after restarts
 @bot.event
 async def on_ready():
-    import os
     import cogs.poll as pollmod
 
     print(f"✅ Logged in as {bot.user}")
@@ -71,6 +52,7 @@ async def on_ready():
 
     print("✅ All cogs loaded and ready.")
 
+# Run
 TOKEN = os.getenv("DISCORD_TOKEN")
 if TOKEN is None or TOKEN == "":
     print("❌ DISCORD_TOKEN not set - cannot start bot.")

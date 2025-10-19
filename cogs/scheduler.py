@@ -9,15 +9,22 @@ POLL_PAUSE_HOUR = int(os.getenv("POLL_PAUSE_HOUR", "21"))
 POLL_RESUME_HOUR = int(os.getenv("POLL_RESUME_HOUR", "8"))
 MT = ZoneInfo("America/Denver")
 
+
 class SchedulerCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        # DO NOT start the task in __init__ — event loop not running here
+
+    async def cog_load(self):
+        """
+        cog_load is called after the cog is added (and awaited) in setup_hook.
+        Start the background scheduler here so there's a running event loop.
+        """
         if not self.poll_scheduler.is_running():
             self.poll_scheduler.start()
 
     @tasks.loop(hours=1)
     async def poll_scheduler(self):
-        global pollmod
         channel = self.bot.get_channel(int(os.getenv("POLL_CHANNEL_ID", "0")))
         if channel is None:
             return
