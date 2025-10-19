@@ -289,31 +289,83 @@ class DummyContext:
 # -------- Bot Events --------
 @bot.event
 async def on_message(message):
-    # Check for shutdown message from watch channel (keeps previous behavior)
     if message.channel.id == WATCH_CHANNEL_ID and message.author.bot:
         for embed in message.embeds:
             if embed.description:
-                dummyContext = DummyContext(message.channel)
                 desc = embed.description.lower()
                 serverChat = bot.get_channel(SERVER_CHAT_CHANNEL_ID)
+                pollChannel = bot.get_channel(CHANNEL_ID)
+                dummyContext = DummyContext(message.channel)
 
+                # SERVER OPENED
                 if "the server has opened" in desc and ":green_circle:" in desc:
                     print("Detected server open event!")
-                    await message.delete()
-                    if serverChat:
-                        await serverChat.send("✅ The server is running")
-                    await running(dummyContext)
+                    # remove the external embed message
+                    try:
+                        await message.delete()
+                    except Exception:
+                        pass
 
+                    # Send server running message to server-chat with credentials
+                    if serverChat:
+                        try:
+                            ip = MINECRAFT_SERVER_LOGIN[0] if len(MINECRAFT_SERVER_LOGIN) > 0 else "IP_NOT_SET"
+                            port = MINECRAFT_SERVER_LOGIN[1] if len(MINECRAFT_SERVER_LOGIN) > 1 else "PORT_NOT_SET"
+                            # if role exists in guild, mention GETNOTIFIED role; else mention by id
+                            guild = message.guild
+                            role = guild.get_role(GETNOTIFIED_ROLE_ID) if guild else None
+                            role_mention = role.mention if role else f"<@&{GETNOTIFIED_ROLE_ID}>"
+
+                            await serverChat.send(
+                                "Server is running! ✅\n"
+                                f"Use this info to connect to the server:\n"
+                                f"IP: {ip}\n"
+                                f"Port: {port} (Bedrock users)\n\n"
+                                f"{role_mention} — run `!getnotified` in {pollChannel.mention} to be added to notifications."
+                            )
+                        except Exception as e:
+                            print(f"Failed sending server open credentials to serverChat: {e}")
+
+                    # Update the poll message (in poll channel) to point users to server-chat
+                    try:
+                        if poll_message:
+                            await poll_message.edit(content=f"✅ Server running — go to {serverChat.mention}", view=None)
+                        else:
+                            # if poll_message wasn't set, create temporary pointer in poll channel
+                            if pollChannel:
+                                poll_message = await pollChannel.send(f"✅ Server running — go to {serverChat.mention}")
+                    except Exception as e:
+                        print(f"Failed to update poll message on server open: {e}")
+
+                    # call running() flow to preserve previous side-effects if needed
+                    try:
+                        await running(dummyContext)
+                    except Exception:
+                        # already performed key actions; ignoring running() errors
+                        pass
+
+                # SERVER SHUTDOWN
                 elif "the server has shutdown" in desc and ":red_circle:" in desc:
                     print("Detected server shutdown event!")
+                    try:
+                        await message.delete()
+                    except Exception:
+                        pass
+
+                    # Tell server_chat the server's been shut down
                     if serverChat:
-                        await serverChat.purge(limit=200, check=lambda m: m.author == bot.user)
-                        await serverChat.send("❌ The server has been shutdown")
-                    await resetpoll(dummyContext)
+                        try:
+                            await serverChat.send("❌ The server has been shutdown")
+                        except Exception as e:
+                            print(f"Failed to send shutdown notice to serverChat: {e}")
 
-                await checkCommands(message)
+                    # Restore the poll message back to normal (reset poll)
+                    try:
+                        # Use your resetpoll logic to rebuild the poll message
+                        await resetpoll(DummyContext(pollChannel if pollChannel else message.channel))
+                    except Exception as e:
+                        print(f"Failed to reset poll on server shutdown: {e}")
 
-    await bot.process_commands(message)
 
 
 @bot.event
@@ -401,25 +453,55 @@ async def running(ctx):
 
     role = ctx.guild.get_role(GETNOTIFIED_ROLE_ID)
 
-    role.mention = "[Editing Mode - No Role Mention]" if editing == True else role.mention
+    # Channels
+    poll_channel = bot.get_channel(CHANNEL_ID)
+    server_chat = bot.get_channel(SERVER_CHAT_CHANNEL_ID)
 
-    channel = bot.get_channel(CHANNEL_ID)
-    if channel is None:
+    if poll_channel is None:
         await ctx.send("❌ Poll channel not found! Check POLL_CHANNEL_ID")
         return
+    if server_chat is None:
+        await ctx.send("❌ Server chat channel not found! Check SERVER_CHAT_CHANNEL_ID")
+        return
 
+    # Turn on running mode
     running_mode = True
-    poll_message = None
-    # purge only bot messages
-    await channel.purge(limit=200, check=lambda m: m.author == bot.user)
-    await channel.send("Server is running! ")
-    await channel.send(
-        f"Use this info to connect to the server:\n"
-        f"IP: {MINECRAFT_SERVER_LOGIN[0]}\n"
-        f"Port: {MINECRAFT_SERVER_LOGIN[1]} (The port is for Bedrock users only)\n"
-        f"\nMentioning the role {role.mention if role else 'role missing'}. Run !getnotified to get this role and be notified when the server is ready again. Run !stopnotified to remove the role."
-    )
-    await ctx.send("✅ Server credentials posted. Poll will remain paused until !resetpoll is called.")
+
+    # Edit or clear the poll message to indicate server running and point to server chat
+    try:
+        # If we have a poll_message, edit it to point people to the server-chat channel
+        if poll_message:
+            await poll_message.edit(content=f"✅ Server running — go to {server_chat.mention}", view=None)
+        else:
+            # If no poll_message exists, post a temporary pointer message (will be removed by resetpoll)
+            tmp = await poll_channel.send(f"✅ Server running — go to {server_chat.mention}")
+            # store it so resetpoll knows what to replace (optional)
+            poll_message = tmp
+    except Exception as e:
+        print(f"Failed to update poll message on running(): {e}")
+
+    # Send the server credentials into server_chat for everyone there to use
+    try:
+        # safe formatting of credentials
+        ip = MINECRAFT_SERVER_LOGIN[0] if len(MINECRAFT_SERVER_LOGIN) > 0 else "IP_NOT_SET"
+        port = MINECRAFT_SERVER_LOGIN[1] if len(MINECRAFT_SERVER_LOGIN) > 1 else "PORT_NOT_SET"
+        role_mention = role.mention if role else f"<@&{GETNOTIFIED_ROLE_ID}>"
+
+        await server_chat.send(
+            "Server is running! ✅\n"
+            f"Use this info to connect to the server:\n"
+            f"IP: {ip}\n"
+            f"Port: {port} (Bedrock users)\n\n"
+            f"{role_mention} — run `!getnotified` in {poll_channel.mention} to be added to notifications."
+        )
+    except Exception as e:
+        print(f"Failed to send credentials to server_chat: {e}")
+
+    # Notify caller the action completed
+    try:
+        await ctx.send("✅ Server credentials posted to server chat and poll updated.")
+    except Exception:
+        pass
 
 
 @bot.command()
