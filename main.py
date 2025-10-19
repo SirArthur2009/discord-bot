@@ -1,6 +1,12 @@
 # discord-bot/main.py
 import os
+import sys
 from dotenv import load_dotenv
+
+# Ensure project root is on sys.path so Python can import 'cogs' and 'utils' packages.
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # Load local .env only for development; Railway env vars override process env.
 load_dotenv(override=False)
@@ -58,3 +64,9 @@ async def on_ready():
 
     # keep running: scheduler cog will start itself from its constructor
     print("✅ All cogs loaded and ready.")
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+if TOKEN is None or TOKEN == "":
+    print("❌ DISCORD_TOKEN not set - cannot start bot.")
+else:
+    bot.run(TOKEN)
