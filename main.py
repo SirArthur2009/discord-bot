@@ -367,7 +367,6 @@ async def on_message(message):
                         print(f"Failed to reset poll on server shutdown: {e}")
 
 
-
 @bot.event
 async def on_ready():
     global poll_message, paused, poll_votes
