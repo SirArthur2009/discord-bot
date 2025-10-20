@@ -3,6 +3,10 @@ import os
 import sys
 from dotenv import load_dotenv
 
+#TODO Fix the posted info
+#TODO Purge channel after shutdown of server
+#TODO Repost poll after server shutdown
+
 # Ensure repo root and discord-bot subdir are on sys.path
 THIS_FILE = os.path.abspath(__file__)
 REPO_ROOT = os.path.dirname(THIS_FILE)
