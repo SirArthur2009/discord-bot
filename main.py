@@ -2,6 +2,8 @@
 import os
 import sys
 from dotenv import load_dotenv
+from bot_app import bot
+import os
 
 #TODO Fix the posted info
 #TODO Purge channel after shutdown of server
@@ -12,6 +14,8 @@ THIS_FILE = os.path.abspath(__file__)
 REPO_ROOT = os.path.dirname(THIS_FILE)
 ALT_PROJECT_DIR = os.path.join(REPO_ROOT, "discord-bot")
 
+BOT_COMMANDS_CHANNEL_ID = int(os.getenv("BOT_COMMANDS_CHANNEL_ID", "0"))
+
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 if os.path.isdir(ALT_PROJECT_DIR) and ALT_PROJECT_DIR not in sys.path:
@@ -19,9 +23,6 @@ if os.path.isdir(ALT_PROJECT_DIR) and ALT_PROJECT_DIR not in sys.path:
 
 # Load local .env only for dev; Railway env vars override process env.
 load_dotenv(override=False)
-
-from bot_app import bot
-import os
 
 # on_ready: re-hook any existing poll message so buttons keep working after restarts
 @bot.event
@@ -55,6 +56,10 @@ async def on_ready():
         print(f"Error while scanning channel history for poll message: {e}")
 
     print("✅ All cogs loaded and ready.")
+
+    channel = bot.get_channel(BOT_COMMANDS_CHANNEL_ID)
+    if channel:
+        await channel.send("🤖 Bot restarted.")
 
 # Run
 TOKEN = os.getenv("DISCORD_TOKEN")

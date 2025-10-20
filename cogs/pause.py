@@ -3,6 +3,7 @@ import os
 from discord.ext import commands
 import cogs.poll as pollmod
 from utils.helpers import DummyContext
+from utils import helpers
 
 class PauseCog(commands.Cog):
     def __init__(self, bot):
@@ -49,11 +50,11 @@ class PauseCog(commands.Cog):
         if poll_message_local:
             await ctx.send("✅ Poll has been reset for the next round!")
 
-    @commands.command()
+    @commands.command(name="editing")
     async def editing(self, ctx):
-        # This command should reply to the user indicating whether editing mode is on or off
-        global pollmod
-        if pollmod.editing_mode:
-            await ctx.send("✏️ Editing mode is currently *ON*.")
-        else:
-            await ctx.send("✏️ Editing mode is currently *OFF*.")
+        """Show whether editing mode is ON or OFF (helpers.EDITING flag)."""
+        state = getattr(helpers, "EDITING", None)
+        if state is None:
+            await ctx.send("✏️ Editing mode flag not found in utils.helpers.")
+            return
+        await ctx.send(f"✏️ Editing mode is currently **{'ON' if state else 'OFF'}**.")
