@@ -48,3 +48,12 @@ class PauseCog(commands.Cog):
         poll_message_local = await pollmod.post_poll(channel)
         if poll_message_local:
             await ctx.send("✅ Poll has been reset for the next round!")
+
+    @commands.command()
+    async def editing(self, ctx):
+        # This command should reply to the user indicating whether editing mode is on or off
+        global pollmod
+        if pollmod.editing_mode:
+            await ctx.send("✏️ Editing mode is currently *ON*.")
+        else:
+            await ctx.send("✏️ Editing mode is currently *OFF*.")
