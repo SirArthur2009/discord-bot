@@ -32,3 +32,16 @@ class DummyContext:
 
     async def send(self, content):
         return await self.channel.send(content)
+
+class AternosAPI:
+    def __init__(self, channel):
+        self.channel = channel
+
+    # Starts the specified server
+    def startServ(aternos):
+        aternos.start()
+
+    # Stops the specified server
+    def stopServ(aternos):
+        aternos.stop()
+        
