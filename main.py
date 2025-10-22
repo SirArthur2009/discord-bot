@@ -4,7 +4,7 @@ import sys
 from dotenv import load_dotenv
 from bot_app import bot
 import os
-import aternos
+import pyaternos
 
 #TODO Fix the posted info
 #TODO Purge channel after shutdown of server
@@ -28,7 +28,7 @@ load_dotenv(override=False)
 # ===========| ATERNOS |===========
 # Log into Aternos API
 # Create object
-atclient = aternos.Client()
+atclient = pyaternos.Client()
 
 # Log in with username and password
 atclient.login('Tester123455', 'zikkav-kiscEs-7zosfy')
