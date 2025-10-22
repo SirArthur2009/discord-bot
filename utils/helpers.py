@@ -1,6 +1,7 @@
 # discord-bot/utils/helpers.py
 import os
 from bot_app import bot
+import aternos
 
 NOTIFY_THREAD_ID = int(os.getenv("NOTIFY_THREAD_ID", "0"))
 NOTIFY_ROLE_ID = int(os.getenv("NOTIFY_ROLE_ID", "0"))
