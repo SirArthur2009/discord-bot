@@ -3,6 +3,7 @@ import os
 from discord.ext import commands
 import discord
 import cogs.poll as pollmod
+import utils.helpers as helper
 
 MINECRAFT_SERVER_LOGIN = os.getenv("LOGIN_CREDENTIALS", "IP NOT FOUND, PORT NOT FOUND").split(",")
 GETNOTIFIED_ROLE_ID = int(os.getenv("GETNOTIFIED_ROLE_ID", "0"))
@@ -60,3 +61,12 @@ class ServerCog(commands.Cog):
             await ctx.send("✅ Server credentials posted to server chat and poll updated.")
         except Exception:
             pass
+
+---- VOLATILE AND MAY NOT WORK ----
+    @commands.command
+    async def startServer(self, ctx):
+        """
+        Runs the startServ() function from helper.py
+        """
+        helper.AternosAPI.startServ()
+        running()
