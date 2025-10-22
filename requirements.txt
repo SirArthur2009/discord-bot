@@ -1,4 +1,4 @@
 discord.py==2.3.2
 lxml>=4.9.3
 python-dotenv>=1.0.0
-pyaternos>=1.5.0
+py-aternos>=1.5.0
