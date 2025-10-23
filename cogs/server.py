@@ -68,5 +68,6 @@ class ServerCog(commands.Cog):
         """
         Runs the startServ() function from helper.py
         """
-        helper.AternosAPI.startServ()
-        running()
+        try:
+            helper.AternosAPI.startServ()
+            running()
