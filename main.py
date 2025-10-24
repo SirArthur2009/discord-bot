@@ -40,7 +40,7 @@ aternos = atclient.account
 servers = aternos.list_servers()
 
 # Get the right server
-UTS = servers[1]
+UTS = servers[0]
 print("Software:", UTS.software)
 print("Version:", UTS.version)
 print("THIS IS NOT UTS!! THE ACCOUNT HAS NOT BEEN GIVEN PERMISSION YET!")
