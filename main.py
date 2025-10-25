@@ -25,35 +25,35 @@ if os.path.isdir(ALT_PROJECT_DIR) and ALT_PROJECT_DIR not in sys.path:
 # Load local .env only for dev; Railway env vars override process env.
 load_dotenv(override=False)
 
-# ===========| ATERNOS |===========
-# Log into Aternos API
-# Create object
-atclient = pyaternos.Client()
-print("Aternos client initialized...")
-
-# Log in with username and password
-atclient.login('Tester123455', 'zikkav-kiscEs-7zosfy')
-print("Aternos client logged in...")
-
-# Get AternosAccount object
-aternos = atclient.account
-print("Aternos account loaded...")
-
-# Get servers list
-servers = aternos.list_servers()
-print("Server list retrieved...")
-
-# Get the right server
-UTS = servers[0]
-print("Software:", UTS.software)
-print("Version:", UTS.version)
-print("THIS IS NOT UTS!! THE ACCOUNT HAS NOT BEEN GIVEN PERMISSION YET!")
-# ===================================
-
 # on_ready: re-hook any existing poll message so buttons keep working after restarts
 @bot.event
 async def on_ready():
     import cogs.poll as pollmod
+
+    # ===========| ATERNOS |===========
+    # Log into Aternos API
+    # Create object
+    atclient = pyaternos.Client()
+    print("Aternos client initialized...")
+    
+    # Log in with username and password
+    atclient.login('Tester123455', 'zikkav-kiscEs-7zosfy')
+    print("Aternos client logged in...")
+    
+    # Get AternosAccount object
+    aternos = atclient.account
+    print("Aternos account loaded...")
+    
+    # Get servers list
+    servers = aternos.list_servers()
+    print("Server list retrieved...")
+    
+    # Get the right server
+    UTS = servers[0]
+    print("Software:", UTS.software)
+    print("Version:", UTS.version)
+    print("THIS IS NOT UTS!! THE ACCOUNT HAS NOT BEEN GIVEN PERMISSION YET!")
+    # ===================================
 
     print(f"✅ Logged in as {bot.user}")
 
