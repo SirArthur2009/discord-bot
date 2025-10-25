@@ -2,3 +2,5 @@ discord.py==2.3.2
 lxml>=4.9.1
 python-dotenv>=1.0.0
 py-aternos>=1.5.0
+libxml2
+libxslt
