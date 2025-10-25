@@ -29,15 +29,19 @@ load_dotenv(override=False)
 # Log into Aternos API
 # Create object
 atclient = pyaternos.Client()
+print("Aternos client initialized...")
 
 # Log in with username and password
 atclient.login('Tester123455', 'zikkav-kiscEs-7zosfy')
+print("Aternos client logged in...")
 
 # Get AternosAccount object
 aternos = atclient.account
+print("Aternos account loaded...")
 
 # Get servers list
 servers = aternos.list_servers()
+print("Server list retrieved...")
 
 # Get the right server
 UTS = servers[0]
