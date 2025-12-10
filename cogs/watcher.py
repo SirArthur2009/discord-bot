@@ -51,7 +51,7 @@ class WatcherCog(commands.Cog):
                         pass
 
                     try:
-                        await serverChat.purge(limit=100)
+                        await serverChat.purge(limit=1000)
                         await serverChat.send("❌ The server has been shutdown")
                     except Exception as e:
                         print(f"Failed to send shutdown notice to serverChat: {e}")

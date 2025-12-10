@@ -55,8 +55,3 @@ class ServerCog(commands.Cog):
             )
         except Exception as e:
             print(f"Failed to send credentials to server_chat: {e}")
-
-        try:
-            await ctx.send("✅ Server credentials posted to server chat and poll updated.")
-        except Exception:
-            pass
