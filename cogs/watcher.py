@@ -17,7 +17,7 @@ class WatcherCog(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         # Only respond to bot messages posted in the WATCH_CHANNEL
-        print(WATCH_CHANNEL_ID)
+        print(WATCH_CHANNEL_ID==message.channel.id)
         if message.channel.id != WATCH_CHANNEL_ID or not message.author.bot:
             return
 
@@ -29,7 +29,7 @@ class WatcherCog(commands.Cog):
                 pollChannel = self.bot.get_channel(POLL_CHANNEL_ID)
 
                 # SERVER OPENED
-                if "the server has opened" in desc and ":green_circle:" in desc:
+                if "the server has started!" in desc and ":green_circle:" in desc:
                     print("Detected server open event!")
                     try:
                         await message.delete()
@@ -44,7 +44,7 @@ class WatcherCog(commands.Cog):
                         pass
 
                 # SERVER SHUTDOWN
-                elif "the server has shutdown" in desc and ":red_circle:" in desc:
+                elif "the server has stopped!" in desc and ":red_circle:" in desc:
                     print("Detected server shutdown event!")
                     try:
                         await message.delete()
