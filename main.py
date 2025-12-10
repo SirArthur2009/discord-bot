@@ -5,9 +5,6 @@ from dotenv import load_dotenv
 from bot_app import bot
 import os
 
-#TODO Fix the posted info
-#TODO Purge channel after shutdown of server
-#TODO Repost poll after server shutdown
 #TODO Add / commands for better UXer admin control
 #TODO Admin commands only in bot-commands channel
 
