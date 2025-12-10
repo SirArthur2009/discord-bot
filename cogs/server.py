@@ -11,7 +11,6 @@ class ServerCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @bot.tree.command(name="running", description="Mark the server as running and post credentials")
     @commands.command()
     async def running(self, ctx):
         """
