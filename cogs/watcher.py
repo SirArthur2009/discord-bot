@@ -57,15 +57,10 @@ class WatcherCog(commands.Cog):
                     except Exception as e:
                         print(f"Failed to send shutdown notice to serverChat: {e}")
 
-                    # Restore poll
-                    try:
-                        # Use the PollCog's resetpoll command via DummyContext
+                    # Repost poll if applicable
+                    if pollChannel:
                         try:
-                            await self.bot.get_cog("PollCog").resetpoll(DummyContext(pollChannel if pollChannel else message.channel))
+                            print("Reposting poll directly…")
+                            pollmod.poll_message = await pollmod.post_poll(pollChannel)
                         except Exception as e:
-                            # Fallback: directly call post_poll
-                            print(f"Failed to reset poll via command, falling back: {e}")
-                            if pollChannel:
-                                pollmod.poll_message = await pollmod.post_poll(pollChannel)
-                    except Exception as e:
-                        print(f"Failed to reset poll on server shutdown: {e}")
+                            print(f"Failed to post poll: {e}")
