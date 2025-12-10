@@ -17,12 +17,14 @@ class WatcherCog(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         # Only respond to bot messages posted in the WATCH_CHANNEL
+        print(WATCH_CHANNEL_ID)
         if message.channel.id != WATCH_CHANNEL_ID or not message.author.bot:
             return
 
         for embed in message.embeds:
             if embed.description:
                 desc = embed.description.lower()
+                print(f"WatcherCog detected embed description: {desc}")
                 serverChat = self.bot.get_channel(SERVER_CHAT_CHANNEL_ID)
                 pollChannel = self.bot.get_channel(POLL_CHANNEL_ID)
 
