@@ -17,7 +17,6 @@ class WatcherCog(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         # Only respond to bot messages posted in the WATCH_CHANNEL
-        print(WATCH_CHANNEL_ID==message.channel.id)
         if message.channel.id != WATCH_CHANNEL_ID or not message.author.bot:
             return
 
