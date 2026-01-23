@@ -60,6 +60,7 @@ class WatcherCog(commands.Cog):
                     if pollChannel:
                         try:
                             print("Reposting poll directly…")
+                            pollmod.running_mode = False
                             pollmod.poll_message = await pollmod.post_poll(pollChannel)
                         except Exception as e:
                             print(f"Failed to post poll: {e}")
