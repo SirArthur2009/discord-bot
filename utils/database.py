@@ -5,9 +5,9 @@ from mysql.connector import Error
 def get_connection():
     try:
         connection = mysql.connector.connect(
-            host=mysql.railway.internal,     # Railway host
-            user=root,
-            password=kgkyfMksCeTWAIHvKlLCenzkKLdKaKXh,
+            host='mysql.railway.internal',     # Railway host
+            user='root',
+            password='kgkyfMksCeTWAIHvKlLCenzkKLdKaKXh',
             database="railway",
             port=3306,
             autocommit=True
