@@ -26,7 +26,6 @@ class MyBot(commands.Bot):
         from cogs.scheduler import SchedulerCog
         from cogs.watcher import WatcherCog
         from cogs.claims import ClaimsCog
-        from cogs.database_tester import DatabaseTester
 
         # await add_cog so any async cog_load() runs now (with event loop active)
         await self.add_cog(PollCog(self))
@@ -36,7 +35,6 @@ class MyBot(commands.Bot):
         await self.add_cog(SchedulerCog(self))
         await self.add_cog(WatcherCog(self))
         await self.add_cog(ClaimsCog(self))
-        await self.add_cog(DatabaseTester(self))
 
 
 # single bot instance to import elsewhere
