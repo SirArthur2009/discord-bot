@@ -195,3 +195,28 @@ class ClaimsCog(commands.Cog):
         finally:
             cursor.close()
             conn.close()
+
+    @commands.command()
+    async def whoHas(self, ctx, X, Z):
+        if ctx.channel.id != int(os.getenv("ADMIN_CHANNEL_ID", "0")):
+            return
+        
+        conn = get_connection()
+        if not conn:
+            await ctx.send("❌ DB connection failed")
+            return
+        
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM claims WHERE NOT (X2 < %s OR X1 > %s OR Z2 < %s OR Z1 > %s)", (float(X), float(X), float(Z), float(Z)))
+
+            overlapping = cursor.fetchall()
+            if overlapping:
+                await ctx.send(f"Property is {overlapping.user_id}\n They own from ({overlapping.x1}, {overlapping.z1}) to ({overlapping.x2}, {overlapping.z2}) \nClaimID: {overlapping.claimID}")
+            else:
+                await ctx.send("No owner found")
+        except:
+            await ctx.send("Unable to SELECT from database")
+        finally:
+            cursor.close()
+            conn.close()
