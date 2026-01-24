@@ -7,18 +7,21 @@ class ClaimsCog(commands.Cog):
 
     @commands.command()
     async def pingdb(self, ctx):
-        conn = get_connection()
-        if not conn:
-            await ctx.send("❌ Database connection failed")
-        return
         try:
+            conn = get_connection()
+            if not conn:
+                await ctx.send("❌ DB connection failed")
+                print("get_connection() returned None")
+                return
+
             cursor = conn.cursor()
             cursor.execute("SELECT NOW();")
-            time = cursor.fetchone()[0]
-
+            now = cursor.fetchone()[0]
             cursor.close()
             conn.close()
 
-            await ctx.send(f"✅ Database time: `{time}`")
+            await ctx.send(f"✅ DB time: `{now}`")
+            print("DB query successful:", now)
         except Exception as e:
-            await ctx.send(f"❌ Database query failed: {e}")
+            await ctx.send(f"❌ Command failed: {e}")
+            print("Command exception:", e)
