@@ -116,7 +116,6 @@ class ClaimsApprovalView(discord.ui.View):
             cursor.close()
             conn.close()
 
-
 class ClaimsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
