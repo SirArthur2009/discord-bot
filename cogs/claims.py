@@ -188,7 +188,7 @@ class ClaimsCog(commands.Cog):
     async def deleteClaim(self, ctx, claimID:int):
         conn = get_connection()
         if not conn:
-            await interaction.response.send_message("❌ DB connection failed", ephemeral=True)
+            await ctx.send("❌ DB connection failed", ephemeral=True)
             return
 
         cursor = conn.cursor()
@@ -201,7 +201,7 @@ class ClaimsCog(commands.Cog):
                 ephemeral=True
             )
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error denying claim: {e}", ephemeral=True)
+            await ctx.send(f"❌ Error denying claim: {e}", ephemeral=True)
         finally:
             cursor.close()
             conn.close()
