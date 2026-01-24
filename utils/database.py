@@ -1,18 +1,15 @@
 import os
 import mysql.connector
 from mysql.connector import Error
-from dotenv import load_dotenv
-
-load_dotenv()  # only affects local dev
 
 def get_connection():
     try:
         connection = mysql.connector.connect(
-            host=os.getenv("MYSQLHOST"),
-            port=int(os.getenv("MYSQLPORT")),
-            user=os.getenv("MYSQLUSER"),
-            password=os.getenv("MYSQLPASSWORD"),
-            database=os.getenv("MYSQLDATABASE"),
+            host=mysql.railway.internal,     # Railway host
+            user=root,
+            password=kgkyfMksCeTWAIHvKlLCenzkKLdKaKXh,
+            database="railway",
+            port=3306,
             autocommit=True
         )
         return connection
