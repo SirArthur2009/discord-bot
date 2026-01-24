@@ -175,15 +175,6 @@ class ClaimsCog(commands.Cog):
         )
 
     @commands.command()
-    async def test_connection(self, ctx):
-        conn = get_connection()
-        if conn:
-            conn.close()
-            await ctx.send("✅ DB connection test successful")
-        else:
-            await ctx.send("❌ DB connection test failed")
-
-    @commands.command()
     async def deleteClaim(self, ctx, claimID:int):
         conn = get_connection()
         if not conn:
