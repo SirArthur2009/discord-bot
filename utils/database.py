@@ -1,15 +1,23 @@
 import os
 import mysql.connector
 from mysql.connector import Error
+from urllib.parse import urlparse
 
 def get_connection():
+    url = os.getenv("MYSQL_URL")
+    if not url:
+        print("❌ MYSQL_URL environment variable not set")
+        return None
+
+    # Parse the URL
+    result = urlparse(url)
     try:
         connection = mysql.connector.connect(
-            host='mysql.railway.internal',     # Railway host
-            user='root',
-            password='kgkyfMksCeTWAIHvKlLCenzkKLdKaKXh',
-            database="railway",
-            port=3306,
+            host=result.hostname,
+            port=result.port,
+            user=result.username,
+            password=result.password,
+            database=result.path.lstrip("/"),  # remove leading slash
             autocommit=True
         )
         return connection
