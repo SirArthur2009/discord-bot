@@ -12,11 +12,11 @@ class ClaimsCog(commands.Cog):
             await ctx.send("❌ Database connection failed")
         return
 
-    cursor = conn.cursor()
-    cursor.execute("SELECT NOW();")
-    time = cursor.fetchone()[0]
+        cursor = conn.cursor()
+        cursor.execute("SELECT NOW();")
+        time = cursor.fetchone()[0]
 
-    cursor.close()
-    conn.close()
+        cursor.close()
+        conn.close()
 
-    await ctx.send(f"✅ Database time: `{time}`")
+        await ctx.send(f"✅ Database time: `{time}`")
