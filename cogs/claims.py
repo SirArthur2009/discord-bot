@@ -25,3 +25,14 @@ class ClaimsCog(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Command failed: {e}")
             print("Command exception:", e)
+
+    @commands.command()
+    async def testdbvars(self, ctx):
+        url = os.getenv("MYSQL_URL")
+        if url:
+            await ctx.send(f"✅ MYSQL_URL found: `{url}`")
+            print("MYSQL_URL:", url)  # This will go to Railway logs
+        else:
+            await ctx.send("❌ MYSQL_URL not set!")
+            print("MYSQL_URL is None")
+
