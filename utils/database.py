@@ -27,11 +27,14 @@ def get_connection():
         return None
 
 class DatabaseTester:
+    def __init__(self, bot):
+        self.bot = bot
+        
     @commands.command()
-    def test_connection(self, ctx):
+    async def test_connection(self, ctx):
         conn = get_connection()
         if conn:
             conn.close()
-            ctx.send("✅ DB connection test successful")
+            await ctx.send("✅ DB connection test successful")
         else:
-            ctx.send("❌ DB connection test failed")
+            await ctx.send("❌ DB connection test failed")
