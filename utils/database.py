@@ -27,7 +27,7 @@ def get_connection():
         return None
 
 class DatabaseTester:
-    @command.command
+    @commands.command()
     def test_connection(self, ctx):
         conn = get_connection()
         if conn:
