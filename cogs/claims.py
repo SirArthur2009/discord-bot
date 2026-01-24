@@ -215,7 +215,7 @@ class ClaimsCog(commands.Cog):
 
             overlapping = cursor.fetchall()
             if overlapping:
-                await ctx.send(f"Property is {overlapping.user_id}\n They own from ({overlapping.x1}, {overlapping.z1}) to ({overlapping.x2}, {overlapping.z2}) \nClaimID: {overlapping.claimID}")
+                await ctx.send(f"Property is {overlapping[0].user_id}\n They own from ({overlapping[0].x1}, {overlapping[0].z1}) to ({overlapping[0].x2}, {overlapping[0].z2}) \nClaimID: {overlapping[0].claimID}")
             else:
                 await ctx.send("No owner found")
         except Exception as e:
