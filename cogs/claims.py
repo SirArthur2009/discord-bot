@@ -1,5 +1,6 @@
 from discord.ext import commands
 from utils.database import get_connection
+import os
 
 class ClaimsCog(commands.Cog):
     def __init__(self, bot):
