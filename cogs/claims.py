@@ -59,6 +59,14 @@ class ClaimsApprovalView(discord.ui.View):
                 ephemeral=True
             )
 
+            #DM the user and let them know that their claim was approved
+            user = bot.get_user(int(self.user_id))  
+            if user:
+                try:
+                    await user.send(f"✅ Your claim request (ID: {self.claim_id}) has been approved!")
+                except Exception as e:
+                    print(f"❌ Failed to send DM to user {self.user_id}: {e}")
+
             # Disable buttons
             for item in self.children:
                 if isinstance(item, discord.ui.Button):
@@ -88,6 +96,13 @@ class ClaimsApprovalView(discord.ui.View):
                 f"❌ Claim denied and removed. (Claim ID: {self.claim_id})",
                 ephemeral=True
             )
+            #DM the user and let them know their claim was denied
+            user = bot.get_user(int(self.user_id))
+            if user:
+                try:
+                    await user.send(f"❌ Your claim request (ID: {self.claim_id}) has been denied by the admins.")
+                except Exception:
+                    pass
 
             # Disable buttons
             for item in self.children:
