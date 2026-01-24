@@ -28,11 +28,15 @@ class ClaimsApprovalView(discord.ui.View):
             # No overlap - move to claims table
             cursor.execute("CREATE TABLE IF NOT EXISTS claims (id INT AUTO_INCREMENT PRIMARY KEY, user_id VARCHAR(50), X1 VARCHAR(50), Z1 VARCHAR(50), X2 VARCHAR(50), Z2 VARCHAR(50));")
             
+            # Normalize coordinates to ensure min/max order
+            new_x1, new_x2 = (float(self.x1), float(self.x2)) if float(self.x1) <= float(self.x2) else (float(self.x2), float(self.x1))
+            new_z1, new_z2 = (float(self.z1), float(self.z2)) if float(self.z1) <= float(self.z2) else (float(self.z2), float(self.z1))
+            
             # Check for overlaps in existing claims
             cursor.execute("""
                 SELECT id FROM claims WHERE 
-                NOT (X2 < %s OR X1 > %s OR Z2 < %s OR Z1 > %s)
-            """, (float(self.x1), float(self.x2), float(self.z1), float(self.z2)))
+                NOT (CAST(X2 AS FLOAT) <= %s OR CAST(X1 AS FLOAT) >= %s OR CAST(Z2 AS FLOAT) <= %s OR CAST(Z1 AS FLOAT) >= %s)
+            """, (new_x1, new_x2, new_z1, new_z2))
             
             overlapping = cursor.fetchall()
             if overlapping:
