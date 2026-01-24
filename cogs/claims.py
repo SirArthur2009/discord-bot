@@ -157,3 +157,12 @@ class ClaimsCog(commands.Cog):
             f"Coordinates: X1={x1}, Z1={z1}, X2={x2}, Z2={z2}",
             view=view
         )
+        
+    @commands.command()
+    async def test_connection(self, ctx):
+        conn = get_connection()
+        if conn:
+            conn.close()
+            await ctx.send("✅ DB connection test successful")
+        else:
+            await ctx.send("❌ DB connection test failed")

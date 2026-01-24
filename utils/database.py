@@ -25,16 +25,3 @@ def get_connection():
     except Error as e:
         print("❌ Database connection failed:", e)
         return None
-
-class DatabaseTester:
-    def __init__(self, bot):
-        self.bot = bot
-        
-    @commands.command()
-    async def test_connection(self, ctx):
-        conn = get_connection()
-        if conn:
-            conn.close()
-            await ctx.send("✅ DB connection test successful")
-        else:
-            await ctx.send("❌ DB connection test failed")
