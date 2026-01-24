@@ -25,6 +25,9 @@ class ClaimsApprovalView(discord.ui.View):
 
         cursor = conn.cursor()
         try:
+            # No overlap - move to claims table
+            cursor.execute("CREATE TABLE IF NOT EXISTS claims (id INT AUTO_INCREMENT PRIMARY KEY, user_id VARCHAR(50), X1 VARCHAR(50), Z1 VARCHAR(50), X2 VARCHAR(50), Z2 VARCHAR(50));")
+            
             # Check for overlaps in existing claims
             cursor.execute("""
                 SELECT id FROM claims WHERE 
@@ -41,8 +44,7 @@ class ClaimsApprovalView(discord.ui.View):
                 conn.close()
                 return
 
-            # No overlap - move to claims table
-            cursor.execute("CREATE TABLE IF NOT EXISTS claims (id INT AUTO_INCREMENT PRIMARY KEY, user_id VARCHAR(50), X1 VARCHAR(50), Z1 VARCHAR(50), X2 VARCHAR(50), Z2 VARCHAR(50));")
+            # Insert into claims table
             cursor.execute(
                 "INSERT INTO claims (user_id, X1, Z1, X2, Z2) VALUES (%s, %s, %s, %s, %s)",
                 (self.user_id, self.x1, self.z1, self.x2, self.z2)
@@ -157,7 +159,7 @@ class ClaimsCog(commands.Cog):
             f"Coordinates: X1={x1}, Z1={z1}, X2={x2}, Z2={z2}",
             view=view
         )
-        
+
     @commands.command()
     async def test_connection(self, ctx):
         conn = get_connection()
