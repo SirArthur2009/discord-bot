@@ -186,7 +186,7 @@ class ClaimsCog(commands.Cog):
 
         cursor = conn.cursor()
         try:
-            cursor.execute("DELETE FROM claim WHERE id = %s", (claimID,))
+            cursor.execute("DELETE FROM claims WHERE id = %s", (claimID,))
             conn.commit()
 
             await ctx.send(
