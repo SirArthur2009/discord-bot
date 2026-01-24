@@ -194,7 +194,7 @@ class ClaimsCog(commands.Cog):
                 ephemeral=True
             )
         except Exception as e:
-            await ctx.send(f"❌ Error denying claim: {e}", ephemeral=True)
+            await ctx.send(f"❌ Error deleting claim: {e}", ephemeral=True)
         finally:
             cursor.close()
             conn.close()
