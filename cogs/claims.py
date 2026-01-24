@@ -165,7 +165,7 @@ class ClaimsCog(commands.Cog):
         if channel is None:
             print("❌ Claims approval channel not found! Check ADMIN_CHANNEL_ID")
             return
-        
+        claimID = int(claimID)
         view = ClaimsApprovalView(claimID, user_id, x1, z1, x2, z2)
         bot.add_view(view, message_id=None)
         await channel.send(
@@ -183,3 +183,25 @@ class ClaimsCog(commands.Cog):
             await ctx.send("✅ DB connection test successful")
         else:
             await ctx.send("❌ DB connection test failed")
+
+    @commands.command()
+    async def deleteClaim(self, ctx, claimID:int):
+        conn = get_connection()
+        if not conn:
+            await interaction.response.send_message("❌ DB connection failed", ephemeral=True)
+            return
+
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM requests WHERE id = %s", (claimID,))
+            conn.commit()
+
+            await ctx.send_message(
+                f"❌ Claim denied and removed. (Claim ID: {claimID})",
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error denying claim: {e}", ephemeral=True)
+        finally:
+            cursor.close()
+            conn.close()
