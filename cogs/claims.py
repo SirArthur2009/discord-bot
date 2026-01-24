@@ -196,7 +196,7 @@ class ClaimsCog(commands.Cog):
             cursor.execute("DELETE FROM requests WHERE id = %s", (claimID,))
             conn.commit()
 
-            await ctx.send_message(
+            await ctx.send(
                 f"❌ Claim denied and removed. (Claim ID: {claimID})",
                 ephemeral=True
             )
