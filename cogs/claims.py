@@ -58,12 +58,15 @@ class ClaimsApprovalView(discord.ui.View):
                 f"✅ Claim approved! Moved to claims table. (Claim ID: {self.claim_id})",
                 ephemeral=True
             )
+            await bot.get_channel(int(os.getenv("ADMIN_CHANNEL_ID", "0"))).send(
+                f"✅ Claim ID {self.claim_id} approved and added to claims.\nNew Claim DB ID: {cursor.lastrowid}"
+            )
 
             #DM the user and let them know that their claim was approved
             user = bot.get_user(int(self.user_id))  
             if user:
                 try:
-                    await user.send(f"✅ Your claim request (ID: {self.claim_id}) has been approved!")
+                    await user.send(f"✅ Your claim request (ID: {self.claim_id}) has been approved!\nThe new ID of your claim is {cursor.lastrowid}.")
                 except Exception as e:
                     print(f"❌ Failed to send DM to user {self.user_id}: {e}")
 
