@@ -9,15 +9,15 @@ def get_connection():
         print("❌ MYSQL_URL environment variable not set")
         return None
 
-    # Parse the URL
     result = urlparse(url)
+
     try:
         connection = mysql.connector.connect(
             host=result.hostname,
             port=result.port,
             user=result.username,
             password=result.password,
-            database=result.path.lstrip("/"),  # remove leading slash
+            database=result.path.lstrip("/"),
             autocommit=True
         )
         return connection
