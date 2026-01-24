@@ -215,8 +215,8 @@ class ClaimsCog(commands.Cog):
                 await ctx.send(f"Property is {overlapping.user_id}\n They own from ({overlapping.x1}, {overlapping.z1}) to ({overlapping.x2}, {overlapping.z2}) \nClaimID: {overlapping.claimID}")
             else:
                 await ctx.send("No owner found")
-        except:
-            await ctx.send("Unable to SELECT from database")
+        except Exception as e:
+            await ctx.send(f"❌ Error checking claims: {e}")
         finally:
             cursor.close()
             conn.close()
