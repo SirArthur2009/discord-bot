@@ -1,62 +1,148 @@
-# SirArthur's Discord Bot
+# ClaimBot
 
-## Info
+A Discord bot for first-come, first-served claim boards.
 
-This is a program written in Python, it is for managing your discord channel, mainly setting up polls and general help. I **do not** recommend using this bot as is. It is for beginner based code (because I'm a beginner) and to help other people to understand. This bot, as is, is only useful to me and the users of my discord server.
+## Features
 
-## Specifications
+- `/claim create` creates a board with multiple clickable options.
+- The first person to claim an option wins that option; each member can claim only one option per board.
+- Each claimed button becomes disabled while other options remain available.
+- SQLite stores claims, so restarts do not lose winners.
+- `/claim show-results` shows claimed and unclaimed options.
+- `/claim reset` releases every option on a board.
+- `/claim delete` removes a board.
+- All `/claim` commands require the role configured with `COMMAND_ROLE_ID`.
 
-- Python 3.x
-- Discord Server (to hook it up to)
-- Something to run the code on, (your computer, cloud, etc.)
+## 1. Create the Discord app
 
-## Setting it up
+Open the Discord Developer Portal and create a new application.
 
-You have to pass in the following variable list. They will be retreive via `os.getenv()`
+Add a bot user, then copy its bot token. **Never put the token into GitHub or share it.**
 
-- TOKEN
-  > The token to your discord bot
-- CHANNEL_ID
-  > The channel for which the poll and all runs
-- NOTIFY_THREAD_ID
-  > The thread that the notification message gets post on when poll requirement is met
-- NOTIFY_ROLE_ID
-  > ID of those who get notified when poll requirements are met and message is sent.
-- VOTE_THRESHOLD
-  > Number of votes required to send the notification message, includes the bot's vote
-- LOGIN_CREDENTIALS
-  > The credentials posted when the poll is stop and !running is called
-- NOTIFIED_ROLE_ID
-  > Role ID that gets called when !running is called
-- GENERAL_CHANNEL_ID
-  > The channel in which you can subscribe to get the NOTIFIED_ROLE_ID
-- POLL_PAUSE_TIME
-  > Time the poll pauses processes (24 hour format)
-- POLL_RESUME_TIME
-  > Time the poll resumes processes (24 hour format)
+For server installation, the app needs the `bot` and `applications.commands` scopes. The bot needs at least:
 
-## What I do
+- View Channels
+- Send Messages
+- Embed Links
 
-I use <a href="https://www.railway.com">railway</a> to host my discord bot, it has little enough traffic that it is free. Maybe after it has tons of of traffic and does complicated tasks, i will either 1. Host it myself or 2. Buy a place to host it. It works surprising well.
+Discord's current documentation describes server installation and these scopes/permissions:
+https://docs.discord.com/developers/quick-start/getting-started
 
-## What it does
+## 2. Install Python dependencies
 
-1. Posts a poll in CHANNEL_ID channel
-1. Watches for reaction adds, once the reactions count has reached the VOTE_THRESHOLD it will send a message on the NOTIFY_THREAD_ID notifying all with the NOTFIY_ROLE_ID
-1. Watchs the GENERAL_CHANNEL_ID for the commands !getnotified and !stopnotified and assigns and takes away roles accordingly.
-1. Pauses at POLL_PAUSE_TIME and continues at POLL_RESUME_TIME
+Python 3.10+ is recommended.
 
-## All bot commands
+```bash
+python -m venv .venv
+```
 
-- !resetpoll
-  > This commands resets the poll. Used to clear running mode and clear the paused mode.
-- !running
-  > This command puts it into running mode, it mentions NOTIFIED_ROLE_ID and shows the credentials to log in
-- !pause
-  > This pauses the processes, shows a pause message
-- !unpause
-  > This unpauses the processes.
-- !getnotified
-  > This adds the role of NOTIFIED_ROLE_ID to the person that runs it. (This has to be run in GENERAL_CHANNEL_ID)
-- !stopnotified
-  > This removes the role of NOTIFIED_ROLE_ID from the person that runs it. (This has to be run in GENERAL_CHANNEL_ID)
+Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+Linux/macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Then:
+
+```bash
+pip install -r requirements.txt
+```
+
+## 3. Configure the bot
+
+Copy `.env.example` to `.env`.
+
+Set `DISCORD_TOKEN` and `COMMAND_ROLE_ID` (the numeric ID of the Discord role allowed to run `/claim` commands).
+
+For local development, you can also set `GUILD_ID` to your test server ID. Guild-scoped slash commands appear much faster than global commands.
+
+The program itself reads environment variables, so if you use a `.env` file locally, either export those variables in your shell or install/use a dotenv loader. An easy Windows PowerShell example is:
+
+```powershell
+$env:DISCORD_TOKEN="YOUR_TOKEN"
+$env:GUILD_ID="YOUR_SERVER_ID"
+$env:COMMAND_ROLE_ID="YOUR_ALLOWED_ROLE_ID"
+python bot.py
+```
+
+## 4. Start the bot
+
+```bash
+python bot.py
+```
+
+You should see:
+
+```text
+Synced commands to guild ...
+Logged in as ...
+```
+
+Then Discord should show:
+
+```text
+/claim
+```
+
+with:
+
+- create
+- show-results
+- reset
+- delete
+
+## 5. Create a board
+
+Use:
+
+```text
+/claim create
+```
+
+Fill in:
+
+```text
+name: test-1
+message: We need people to help test the new update!
+options: bug tester, GUI tester, graphics tester
+```
+
+The bot will post a board with three buttons.
+
+If Arthur clicks `GUI tester`, that option becomes:
+
+```text
+🔒 GUI Tester — @Arthur
+```
+
+while the other buttons remain active.
+
+## 6. Results
+
+Run:
+
+```text
+/claim show-results name:test-1
+```
+
+The response will show who claimed each option and which options remain available.
+
+## 7. Railway
+
+For Railway, set `DISCORD_TOKEN` as a Railway environment variable.
+
+If you want SQLite data to survive redeploys/restarts, attach a Railway Volume and set:
+
+```text
+DB_PATH=/data/claims.db
+```
+
+where `/data` is the mount path of your volume.
+
+Do not commit `.env` or `claims.db` to GitHub.
