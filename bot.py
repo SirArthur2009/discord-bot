@@ -49,7 +49,26 @@ def init_db():
         UNIQUE(claim_id, name),
         FOREIGN KEY(claim_id) REFERENCES claims(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS option_interests (
+        option_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        interested_at TEXT NOT NULL,
+        PRIMARY KEY (option_id, user_id),
+        FOREIGN KEY(option_id) REFERENCES claim_options(id) ON DELETE CASCADE
+    );
     """)
+    # Preserve sign-ups created under the earlier one-person-per-option model.
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO option_interests (option_id, user_id, interested_at)
+        SELECT claim_options.id, claim_options.claimed_by,
+               COALESCE(claim_options.claimed_at, claims.created_at)
+        FROM claim_options
+        JOIN claims ON claims.id = claim_options.claim_id
+        WHERE claimed_by IS NOT NULL
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -77,11 +96,27 @@ def get_options(claim_id):
     conn.close()
     return rows
 
-def claim_option_atomic(option_id, user_id):
-    """
-    The UPDATE is the important part: only the first transaction that changes
-    claimed_by from NULL can win the option.
-    """
+def get_interests(claim_id):
+    conn = db_connect()
+    rows = conn.execute(
+        """
+        SELECT option_id, user_id
+        FROM option_interests
+        WHERE option_id IN (
+            SELECT id FROM claim_options WHERE claim_id = ?
+        )
+        ORDER BY interested_at, user_id
+        """,
+        (claim_id,)
+    ).fetchall()
+    conn.close()
+
+    interests = {}
+    for row in rows:
+        interests.setdefault(row["option_id"], []).append(row["user_id"])
+    return interests
+
+def register_interest_atomic(option_id, user_id):
     conn = db_connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -94,54 +129,46 @@ def claim_option_atomic(option_id, user_id):
             conn.rollback()
             return None, "missing"
 
-        if row["claimed_by"] is not None:
-            conn.rollback()
-            return row, "claimed"
-
-        existing_claim = conn.execute(
-            """
-            SELECT * FROM claim_options
-            WHERE claim_id = ? AND claimed_by = ?
-            """,
-            (row["claim_id"], user_id)
-        ).fetchone()
-
-        if existing_claim is not None:
-            conn.rollback()
-            return existing_claim, "already_claimed"
-
         now = datetime.now(timezone.utc).isoformat()
         changed = conn.execute(
             """
-            UPDATE claim_options
-            SET claimed_by = ?, claimed_at = ?
-            WHERE id = ? AND claimed_by IS NULL
+            INSERT OR IGNORE INTO option_interests (option_id, user_id, interested_at)
+            VALUES (?, ?, ?)
             """,
-            (user_id, now, option_id)
+            (option_id, user_id, now)
         ).rowcount
 
         if changed != 1:
             conn.rollback()
-            row = conn.execute(
-                "SELECT * FROM claim_options WHERE id = ?",
-                (option_id,)
-            ).fetchone()
-            return row, "claimed"
+            return row, "already_interested"
 
-        row = conn.execute(
-            "SELECT * FROM claim_options WHERE id = ?",
-            (option_id,)
-        ).fetchone()
         conn.commit()
-        return row, "won"
+        return row, "interested"
     finally:
         conn.close()
+
+def format_interested_members(user_ids):
+    if not user_ids:
+        return "No one has signed up yet."
+
+    mentions = [f"<@{user_id}>" for user_id in user_ids]
+    text = ", ".join(mentions)
+    if len(text) <= 1024:
+        return text
+
+    visible = []
+    for mention in mentions:
+        candidate = ", ".join(visible + [mention])
+        if len(candidate) > 980:
+            break
+        visible.append(mention)
+    return f"{', '.join(visible)}\n…and {len(mentions) - len(visible)} more."
 
 def build_embed(claim_id):
     claim = get_claim_by_id(claim_id)
     options = get_options(claim_id)
-
-    claimed = sum(1 for o in options if o["claimed_by"] is not None)
+    interests = get_interests(claim_id)
+    total_interested = sum(len(user_ids) for user_ids in interests.values())
 
     embed = discord.Embed(
         title=f"📋 {claim['name']}",
@@ -149,10 +176,28 @@ def build_embed(claim_id):
         color=discord.Color.blurple()
     )
     embed.add_field(
-        name="Progress",
-        value=f"**{claimed} / {len(options)} claimed**",
+        name="Interest",
+        value=f"**{total_interested}** sign-up(s) across **{len(options)}** option(s).",
         inline=False
     )
+
+    lines = []
+    for option in options:
+        user_ids = interests.get(option["id"], [])
+        line = (
+            f"**{option['name']}** ({len(user_ids)} interested): "
+            f"{format_interested_members(user_ids)}"
+        )
+        candidate = "\n".join(lines + [line])
+        if len(candidate) > 1024:
+            notice = "…Use `/claim show-results` for the complete list."
+            used = len("\n".join(lines))
+            if used + 1 + len(notice) <= 1024:
+                lines.append(notice)
+            break
+        lines.append(line)
+    embed.add_field(name="Options", value="\n".join(lines), inline=False)
+    return embed
 
     lines = []
     for option in options:
@@ -180,7 +225,7 @@ class ClaimButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         async with db_lock:
-            option, result = claim_option_atomic(
+            option, result = register_interest_atomic(
                 self.option_id,
                 interaction.user.id
             )
@@ -192,16 +237,16 @@ class ClaimButton(discord.ui.Button):
             )
             return
 
-        if result == "claimed":
+        if result == "already_interested":
             await interaction.response.send_message(
-                f"Sorry — **{option['name']}** was already claimed.",
+                f"You already signed up for **{option['name']}**.",
                 ephemeral=True
             )
             return
 
-        if result == "already_claimed":
+        if result == "claimed":
             await interaction.response.send_message(
-                f"You already claimed **{option['name']}** on this board. You can only claim one option.",
+                f"Sorry — **{option['name']}** was already claimed.",
                 ephemeral=True
             )
             return
@@ -217,6 +262,12 @@ class ClaimButton(discord.ui.Button):
         )
 
         await interaction.followup.send(
+            f"You signed up for **{option['name']}**!",
+            ephemeral=True
+        )
+        return
+
+        await interaction.followup.send(
             f"✅ You claimed **{option['name']}**!",
             ephemeral=True
         )
@@ -229,7 +280,7 @@ class ClaimView(discord.ui.View):
                 ClaimButton(
                     option["id"],
                     option["name"],
-                    disabled=option["claimed_by"] is not None
+                    disabled=False
                 )
             )
 
@@ -426,6 +477,26 @@ async def claim_show_results(
         return
 
     options = get_options(claim["id"])
+    interests = get_interests(claim["id"])
+
+    embed = discord.Embed(
+        title=f"Interest results — {claim['name']}",
+        color=discord.Color.blurple()
+    )
+    for option in options:
+        user_ids = interests.get(option["id"], [])
+        embed.add_field(
+            name=f"{option['name']} ({len(user_ids)} interested)",
+            value=format_interested_members(user_ids),
+            inline=False
+        )
+
+    embed.set_footer(
+        text=f"{sum(len(user_ids) for user_ids in interests.values())} total sign-up(s)"
+    )
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+    return
+
     claimed = [o for o in options if o["claimed_by"] is not None]
     unclaimed = [o for o in options if o["claimed_by"] is None]
 
@@ -491,6 +562,15 @@ async def claim_reset(interaction: discord.Interaction, name: str):
         return
 
     conn = db_connect()
+    conn.execute(
+        """
+        DELETE FROM option_interests
+        WHERE option_id IN (
+            SELECT id FROM claim_options WHERE claim_id = ?
+        )
+        """,
+        (claim["id"],)
+    )
     conn.execute(
         "UPDATE claim_options SET claimed_by = NULL, claimed_at = NULL WHERE claim_id = ?",
         (claim["id"],)

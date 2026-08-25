@@ -1,12 +1,13 @@
 # ClaimBot
 
-A Discord bot for first-come, first-served claim boards.
+A Discord bot for interest-signup boards.
 
 ## Features
 
 - `/claim create` creates a board with multiple clickable options.
-- The first person to claim an option wins that option; each member can claim only one option per board.
-- Each claimed button becomes disabled while other options remain available.
+- Any number of members can sign up for each option.
+- Members can sign up for as many different options as they want.
+- `/claim show-results` lists the members interested in every option.
 - SQLite stores claims, so restarts do not lose winners.
 - `/claim show-results` shows claimed and unclaimed options.
 - `/claim reset` releases every option on a board.
