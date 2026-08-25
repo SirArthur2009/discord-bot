@@ -7,6 +7,7 @@ A Discord bot for interest-signup boards.
 - `/claim create` creates a board with multiple clickable options.
 - Any number of members can sign up for each option.
 - Members can sign up for as many different options as they want.
+- Clicking an option again removes that member's sign-up.
 - `/claim show-results` lists the members interested in every option.
 - SQLite stores claims, so restarts do not lose winners.
 - `/claim show-results` shows claimed and unclaimed options.

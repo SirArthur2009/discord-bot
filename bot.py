@@ -116,7 +116,7 @@ def get_interests(claim_id):
         interests.setdefault(row["option_id"], []).append(row["user_id"])
     return interests
 
-def register_interest_atomic(option_id, user_id):
+def toggle_interest_atomic(option_id, user_id):
     conn = db_connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -129,18 +129,30 @@ def register_interest_atomic(option_id, user_id):
             conn.rollback()
             return None, "missing"
 
-        now = datetime.now(timezone.utc).isoformat()
-        changed = conn.execute(
+        existing_interest = conn.execute(
             """
-            INSERT OR IGNORE INTO option_interests (option_id, user_id, interested_at)
+            SELECT 1 FROM option_interests
+            WHERE option_id = ? AND user_id = ?
+            """,
+            (option_id, user_id)
+        ).fetchone()
+
+        if existing_interest is not None:
+            conn.execute(
+                "DELETE FROM option_interests WHERE option_id = ? AND user_id = ?",
+                (option_id, user_id)
+            )
+            conn.commit()
+            return row, "unattended"
+
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            """
+            INSERT INTO option_interests (option_id, user_id, interested_at)
             VALUES (?, ?, ?)
             """,
             (option_id, user_id, now)
-        ).rowcount
-
-        if changed != 1:
-            conn.rollback()
-            return row, "already_interested"
+        )
 
         conn.commit()
         return row, "interested"
@@ -225,7 +237,7 @@ class ClaimButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         async with db_lock:
-            option, result = register_interest_atomic(
+            option, result = toggle_interest_atomic(
                 self.option_id,
                 interaction.user.id
             )
@@ -233,13 +245,6 @@ class ClaimButton(discord.ui.Button):
         if result == "missing":
             await interaction.response.send_message(
                 "That claim option no longer exists.",
-                ephemeral=True
-            )
-            return
-
-        if result == "already_interested":
-            await interaction.response.send_message(
-                f"You already signed up for **{option['name']}**.",
                 ephemeral=True
             )
             return
@@ -252,7 +257,6 @@ class ClaimButton(discord.ui.Button):
             return
 
         claim = get_claim_by_id(option["claim_id"])
-        options = get_options(claim["id"])
 
         view = ClaimView.from_database(claim["id"])
 
@@ -262,7 +266,11 @@ class ClaimButton(discord.ui.Button):
         )
 
         await interaction.followup.send(
-            f"You signed up for **{option['name']}**!",
+            (
+                f"You signed up for **{option['name']}**!"
+                if result == "interested"
+                else f"You are no longer attending **{option['name']}**."
+            ),
             ephemeral=True
         )
         return
