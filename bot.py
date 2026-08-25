@@ -267,20 +267,20 @@ class ClaimBot(commands.Bot):
 
 bot = ClaimBot()
 
-claim_group = app_commands.Group(
+class ClaimGroup(app_commands.Group):
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.guild is None:
+            return False
+
+        member = interaction.user
+        return isinstance(member, discord.Member) and any(
+            role.id == COMMAND_ROLE_ID for role in member.roles
+        )
+
+claim_group = ClaimGroup(
     name="claim",
     description="Create and manage first-come, first-served claim boards."
 )
-
-@claim_group.check
-async def has_command_role(interaction: discord.Interaction) -> bool:
-    if interaction.guild is None:
-        return False
-
-    member = interaction.user
-    return isinstance(member, discord.Member) and any(
-        role.id == COMMAND_ROLE_ID for role in member.roles
-    )
 
 @claim_group.command(
     name="create",
