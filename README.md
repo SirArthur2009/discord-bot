@@ -9,9 +9,11 @@ A Discord bot for interest-signup boards.
 - Members can sign up for as many different options as they want.
 - Clicking an option again removes that member's sign-up.
 - `/claim show-results` lists the members interested in every option.
+- `/claim list-all-boards` privately lists every board in the server.
 - SQLite stores claims, so restarts do not lose winners.
 - `/claim show-results` shows claimed and unclaimed options.
 - `/claim reset` releases every option on a board.
+- `/claim lock-claim` closes a claim and disables its sign-up buttons.
 - `/claim delete` removes a board.
 - All `/claim` commands require the role configured with `COMMAND_ROLE_ID`.
 
@@ -96,7 +98,9 @@ with:
 
 - create
 - show-results
+- list-all-boards
 - reset
+- lock-claim
 - delete
 
 ## 5. Create a board

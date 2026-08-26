@@ -23,6 +23,7 @@ def init_db():
         message_id INTEGER NOT NULL UNIQUE,
         name TEXT NOT NULL,
         message TEXT NOT NULL,
+        locked INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
     );
 
@@ -44,6 +45,11 @@ def init_db():
         FOREIGN KEY(option_id) REFERENCES claim_options(id) ON DELETE CASCADE
     );
     """)
+
+    # Migrate claims created before they could be locked.
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(claims)")}
+    if "locked" not in columns:
+        conn.execute("ALTER TABLE claims ADD COLUMN locked INTEGER NOT NULL DEFAULT 0")
 
     # Keep sign-ups created before the non-exclusive interest system.
     conn.execute(
@@ -75,6 +81,15 @@ def get_claim_by_name(guild_id, name):
     ).fetchone()
     conn.close()
     return row
+
+
+def get_claims_by_guild(guild_id):
+    conn = db_connect()
+    rows = conn.execute(
+        "SELECT * FROM claims WHERE guild_id = ? ORDER BY created_at, id", (guild_id,)
+    ).fetchall()
+    conn.close()
+    return rows
 
 
 def get_all_claim_ids():
@@ -173,6 +188,15 @@ def reset_claim(claim_id):
         conn.close()
 
 
+def lock_claim(claim_id):
+    conn = db_connect()
+    try:
+        conn.execute("UPDATE claims SET locked = 1 WHERE id = ?", (claim_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def toggle_interest(option_id, user_id):
     """Add or remove a member's interest in an option, atomically."""
     conn = db_connect()
@@ -184,6 +208,13 @@ def toggle_interest(option_id, user_id):
         if option is None:
             conn.rollback()
             return None, "missing"
+
+        claim = conn.execute(
+            "SELECT locked FROM claims WHERE id = ?", (option["claim_id"],)
+        ).fetchone()
+        if claim is None or claim["locked"]:
+            conn.rollback()
+            return option, "locked"
 
         existing = conn.execute(
             "SELECT 1 FROM option_interests WHERE option_id = ? AND user_id = ?",

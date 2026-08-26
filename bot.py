@@ -14,9 +14,11 @@ from database import (
     get_all_claim_ids,
     get_claim_by_id,
     get_claim_by_name,
+    get_claims_by_guild,
     get_interests,
     get_options,
     init_db,
+    lock_claim,
     reset_claim,
     set_claim_message_id,
     toggle_interest,
@@ -82,15 +84,18 @@ def build_embed(claim_id):
         lines.append(line)
 
     embed.add_field(name="Options", value="\n".join(lines), inline=False)
+    if claim["locked"]:
+        embed.set_footer(text="This claim is locked. Sign-ups are closed.")
     return embed
 
 
 class ClaimButton(discord.ui.Button):
-    def __init__(self, option_id, label):
+    def __init__(self, option_id, label, *, disabled=False):
         super().__init__(
             label=label[:80],
             style=discord.ButtonStyle.primary,
             custom_id=f"claim_option:{option_id}",
+            disabled=disabled,
         )
         self.option_id = option_id
 
@@ -101,6 +106,11 @@ class ClaimButton(discord.ui.Button):
         if result == "missing":
             await interaction.response.send_message(
                 "That option no longer exists.", ephemeral=True
+            )
+            return
+        if result == "locked":
+            await interaction.response.send_message(
+                "This claim is locked. Sign-ups are closed.", ephemeral=True
             )
             return
 
@@ -119,14 +129,15 @@ class ClaimButton(discord.ui.Button):
 
 
 class ClaimView(discord.ui.View):
-    def __init__(self, options):
+    def __init__(self, options, *, locked=False):
         super().__init__(timeout=None)
         for option in options:
-            self.add_item(ClaimButton(option["id"], option["name"]))
+            self.add_item(ClaimButton(option["id"], option["name"], disabled=locked))
 
     @classmethod
     def from_database(cls, claim_id):
-        return cls(get_options(claim_id))
+        claim = get_claim_by_id(claim_id)
+        return cls(get_options(claim_id), locked=bool(claim["locked"]))
 
 
 class ClaimBot(commands.Bot):
@@ -246,6 +257,44 @@ async def claim_show_results(interaction: discord.Interaction, name: str):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+@claim_group.command(name="list-all-boards", description="List every claim board in this server.")
+async def claim_list_all_boards(interaction: discord.Interaction):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+        return
+
+    claims = get_claims_by_guild(interaction.guild.id)
+    if not claims:
+        await interaction.response.send_message("There are no claim boards in this server.", ephemeral=True)
+        return
+
+    pages = []
+    lines = []
+    for claim in claims:
+        status = "locked" if claim["locked"] else "open"
+        line = f"**{claim['name']}** — {status} — <#{claim['channel_id']}>"
+        if lines and len("\n".join(lines + [line])) > 4000:
+            pages.append(lines)
+            lines = []
+        lines.append(line)
+    if lines:
+        pages.append(lines)
+
+    for index, page in enumerate(pages, start=1):
+        embed = discord.Embed(
+            title=f"Claim boards ({len(claims)} total)",
+            description="\n".join(page),
+            color=discord.Color.blurple(),
+        )
+        if len(pages) > 1:
+            embed.set_footer(text=f"Page {index} of {len(pages)}")
+
+        if index == 1:
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+
 @claim_group.command(name="reset", description="Remove all sign-ups from a board.")
 @app_commands.describe(name="Name of the board to reset.")
 async def claim_reset(interaction: discord.Interaction, name: str):
@@ -271,6 +320,40 @@ async def claim_reset(interaction: discord.Interaction, name: str):
         pass
 
     await interaction.response.send_message(f"**{name}** has been reset.", ephemeral=True)
+
+
+@claim_group.command(name="lock-claim", description="Lock a claim and close its sign-ups.")
+@app_commands.describe(name="Name of the claim to lock.")
+async def claim_lock_claim(interaction: discord.Interaction, name: str):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+        return
+
+    claim = get_claim_by_name(interaction.guild.id, name)
+    if not claim:
+        await interaction.response.send_message(f"I couldn't find **{name}**.", ephemeral=True)
+        return
+    if claim["locked"]:
+        await interaction.response.send_message(f"**{name}** is already locked.", ephemeral=True)
+        return
+
+    async with db_lock:
+        lock_claim(claim["id"])
+
+    try:
+        channel = bot.get_channel(claim["channel_id"])
+        if channel:
+            board_message = await channel.fetch_message(claim["message_id"])
+            await board_message.edit(
+                embed=build_embed(claim["id"]),
+                view=ClaimView.from_database(claim["id"]),
+            )
+    except discord.HTTPException:
+        pass
+
+    await interaction.response.send_message(
+        f"**{name}** is now locked. Sign-ups are closed.", ephemeral=True
+    )
 
 
 @claim_group.command(name="delete", description="Delete an interest-signup board.")
