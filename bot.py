@@ -254,7 +254,7 @@ async def claim_show_results(interaction: discord.Interaction, name: str):
             inline=False,
         )
     embed.set_footer(text=f"{sum(len(ids) for ids in interests.values())} total sign-up(s)")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed)
 
 
 @claim_group.command(name="list-all-boards", description="List every claim board in this server.")
