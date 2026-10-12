@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BytesIO
@@ -141,6 +142,7 @@ class IssueCog(commands.Cog):
         self.storage_repo = settings.scope or self.repo
         self.role_id = role_id
         self.api = None
+        self.auth = None
         self.runner = None
         self.sync_lock = asyncio.Lock()
 
@@ -290,6 +292,18 @@ class IssueCog(commands.Cog):
                     continue
             names[user_id] = member.display_name
         return display_github_mentions(text, names, logins)
+
+    @asynccontextmanager
+    async def posting_api(self, guild_id, user_id):
+        if self.auth is None:
+            yield self.api, False
+            return
+        async with self.auth.posting_api(guild_id, user_id, self.repo) as api:
+            yield api or self.api, api is not None
+
+    async def login_reminder(self, guild_id, user_id, delivery):
+        if self.auth:
+            await self.auth.prompt_fallback(guild_id, user_id, delivery)
 
     @tasks.loop(seconds=2)
     async def jobs(self):
@@ -443,7 +457,8 @@ class IssueCog(commands.Cog):
         path = f"issues/comments/{row['comment_id']}"
         if event == "discord_comment_delete":
             try:
-                await self.api.repo_request("DELETE", path)
+                async with self.posting_api(row["actor_guild_id"], row["actor_user_id"]) as (api, _):
+                    await api.repo_request("DELETE", path)
             except GitHubError as error:
                 if error.status != 404:
                     raise
@@ -484,25 +499,43 @@ class IssueCog(commands.Cog):
         if payload["attachments"]:
             content += "\n\nAttachments:\n" + "\n".join(payload["attachments"])
         body = f"{header}\n\n{content}\n\n[Original Discord message]{footer}"
-        await self.api.repo_request("PATCH", path, json={"body": body})
+        async with self.posting_api(row["actor_guild_id"], row["actor_user_id"]) as (api, _):
+            await api.repo_request("PATCH", path, json={"body": body})
 
     async def forward_discord_comment(self, payload):
-        if store.get_comment_by_message(self.storage_repo, payload["message_id"]):
+        saved = store.get_comment_by_message(self.storage_repo, payload["message_id"])
+        if saved:
+            if not saved["actor_user_id"] and "guild_id" in payload:
+                await self.login_reminder(payload["guild_id"], payload["user_id"], f"comment:{payload['message_id']}")
             return
         marker = f"<!-- claimbot-discord:{payload['message_id']} -->"
         # Recover from a crash after GitHub accepted a POST but before SQLite recorded it.
         async for comment in self.api.comments(payload["number"]):
             if (comment.get("body") or "").endswith(marker):
-                store.save_comment(self.storage_repo, comment["id"], payload["message_id"], "discord")
+                # Credential ownership comes from our DB, never user-controlled comment text.
+                actor = store.execute("SELECT * FROM github_comment_actors WHERE repo = ? AND message_id = ?",
+                                      (self.storage_repo, payload["message_id"]), one=True)
+                guild_id, user_id = (actor["guild_id"], actor["user_id"]) if actor else (0, 0)
+                store.save_comment(self.storage_repo, comment["id"], payload["message_id"], "discord", user_id, guild_id)
+                if not user_id and "guild_id" in payload:
+                    await self.login_reminder(payload["guild_id"], payload["user_id"], f"comment:{payload['message_id']}")
                 return
         author = discord.utils.escape_markdown(payload["author"])
         content = await self.render_mentions(payload["content"], payload["guild_id"], payload.get("mention_names"))
         body = f"**{author} on Discord**\n\n{content}"
         if payload["attachments"]:
             body += "\n\nAttachments:\n" + "\n".join(payload["attachments"])
-        body += f"\n\n[Original Discord message](https://discord.com/channels/{payload['guild_id']}/{payload['thread_id']}/{payload['message_id']})\n\n{marker}"
-        comment = await self.api.repo_request("POST", f"issues/{payload['number']}/comments", json={"body": body})
-        store.save_comment(self.storage_repo, comment["id"], payload["message_id"], "discord")
+        body += f"\n\n[Original Discord message](https://discord.com/channels/{payload['guild_id']}/{payload['thread_id']}/{payload['message_id']})"
+        async with self.posting_api(payload["guild_id"], payload["user_id"]) as (api, signed_in):
+            store.execute("INSERT OR REPLACE INTO github_comment_actors VALUES (?, ?, ?, ?)",
+                          (self.storage_repo, payload["message_id"], payload["guild_id"] if signed_in else 0,
+                           payload["user_id"] if signed_in else 0))
+            body += f"\n\n{marker}"
+            comment = await api.repo_request("POST", f"issues/{payload['number']}/comments", json={"body": body})
+        store.save_comment(self.storage_repo, comment["id"], payload["message_id"], "discord",
+                           payload["user_id"] if signed_in else 0, payload["guild_id"] if signed_in else 0)
+        if not signed_in:
+            await self.login_reminder(payload["guild_id"], payload["user_id"], f"comment:{payload['message_id']}")
 
     @tasks.loop(seconds=60)
     async def reminders(self):
@@ -577,7 +610,10 @@ class IssueCog(commands.Cog):
             if not link:
                 raise ValueError("The assignee must first use /issue link with their GitHub username.")
             data["assignees"] = [link["login"]]
-        issue = await self.api.repo_request("POST", "issues", json=data)
+        async with self.posting_api(interaction.guild_id, interaction.user.id) as (api, signed_in):
+            issue = await api.repo_request("POST", "issues", json=data)
+        if not signed_in:
+            await self.login_reminder(interaction.guild_id, interaction.user.id, f"issue:{interaction.id}")
         # Publish a base card before the optional priority operation so partial success is discoverable.
         await self.publish(issue)
         if assignee and link["login"].casefold() not in {user["login"].casefold() for user in issue.get("assignees", [])}:
@@ -647,15 +683,23 @@ class IssueCog(commands.Cog):
 
     @issue_group.command(name="link", description="Set your GitHub username for assignments and reminder routing.")
     async def link(self, interaction: discord.Interaction, username: app_commands.Range[str, 1, 39]):
+        if self.auth and store.execute("SELECT 1 FROM github_auth WHERE guild_id = ? AND user_id = ?",
+                                       (interaction.guild_id, interaction.user.id), one=True):
+            raise ValueError("You are signed in. Use /github logout before changing your username preference.")
         if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?", username):
             raise ValueError("Enter a GitHub username, without @ or a URL.")
         user = await self.api.request("GET", f"/users/{username}")
         store.save_link(interaction.guild_id, interaction.user.id, user["login"])
         await interaction.followup.send(f"Linked your reminder/assignment preference to **{user['login']}**. "
-                                        "This does not sign you into GitHub; comments use the bot's GitHub token.", ephemeral=True)
+                                        "This does not sign you into GitHub. Use /github login to post as yourself.", ephemeral=True)
 
     @issue_group.command(name="unlink", description="Remove your GitHub username preference.")
     async def unlink(self, interaction: discord.Interaction):
+        if self.auth:
+            async with self.auth.locks.setdefault((interaction.guild_id, interaction.user.id), asyncio.Lock()):
+                self.auth.remove_auth(interaction.guild_id, interaction.user.id)
+                store.execute("DELETE FROM github_device_flows WHERE guild_id = ? AND user_id = ?",
+                              (interaction.guild_id, interaction.user.id))
         store.delete_link(interaction.guild_id, interaction.user.id)
         await interaction.followup.send("Removed your GitHub username preference.", ephemeral=True)
 
@@ -843,6 +887,8 @@ async def install_github(bot, role_id, servers=()):
         if configured:
             workers = [IssueCog(bot, settings, server.command_role_id) for server, settings in configured]
             await bot.add_cog(MultiIssueCog(bot, workers))
+            from github_auth import install_auth
+            await install_auth(bot, workers)
         return
     settings = GitHubSettings.from_environment()
     if settings:

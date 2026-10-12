@@ -73,5 +73,6 @@ async def sync_commands(tree, servers, legacy_guild_id):
         server = next((item for item in servers if item.guild_id == guild_id), None)
         if server is not None and server.github_channel_id is None:
             tree.remove_command("issue", guild=guild)
+            tree.remove_command("github", guild=guild)
         await tree.sync(guild=guild)
         print(f"Synced commands to guild {guild_id}")

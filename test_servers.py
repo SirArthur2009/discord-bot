@@ -70,9 +70,8 @@ class CommandSyncTests(unittest.IsolatedAsyncioTestCase):
     async def test_claim_only_server_does_not_get_issue_commands(self):
         tree = SimpleNamespace(copy_global_to=MagicMock(), remove_command=MagicMock(), sync=AsyncMock())
         await sync_commands(tree, [ServerConfig(1, 11, 101), ServerConfig(2, 22)], None)
-        tree.remove_command.assert_called_once()
-        self.assertEqual(tree.remove_command.call_args.args, ("issue",))
-        self.assertEqual(tree.remove_command.call_args.kwargs["guild"].id, 2)
+        self.assertEqual([call.args[0] for call in tree.remove_command.call_args_list], ["issue", "github"])
+        self.assertTrue(all(call.kwargs["guild"].id == 2 for call in tree.remove_command.call_args_list))
 
     async def test_legacy_global_sync_is_preserved(self):
         tree = SimpleNamespace(copy_global_to=MagicMock(), sync=AsyncMock())

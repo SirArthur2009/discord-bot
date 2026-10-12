@@ -40,6 +40,25 @@ def init_github_db():
             login TEXT NOT NULL,
             PRIMARY KEY (guild_id, user_id)
         );
+        CREATE TABLE IF NOT EXISTS github_auth (
+            guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+            login TEXT NOT NULL, credentials TEXT NOT NULL,
+            PRIMARY KEY (guild_id, user_id)
+        );
+        CREATE TABLE IF NOT EXISTS github_device_flows (
+            guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+            credentials TEXT NOT NULL, expires_at REAL NOT NULL,
+            next_poll REAL NOT NULL, interval REAL NOT NULL,
+            PRIMARY KEY (guild_id, user_id)
+        );
+        CREATE TABLE IF NOT EXISTS github_login_prompts (
+            delivery TEXT PRIMARY KEY
+        );
+        CREATE TABLE IF NOT EXISTS github_comment_actors (
+            repo TEXT NOT NULL, message_id INTEGER NOT NULL,
+            guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+            PRIMARY KEY (repo, message_id)
+        );
         CREATE TABLE IF NOT EXISTS github_deadlines (
             repo TEXT NOT NULL,
             number INTEGER NOT NULL,
@@ -61,6 +80,11 @@ def init_github_db():
         if "repo" not in columns:
             conn.execute("ALTER TABLE github_jobs ADD COLUMN repo TEXT NOT NULL DEFAULT ''")
             conn.commit()
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(github_comments)")}
+        for name in ("actor_user_id", "actor_guild_id"):
+            if name not in columns:
+                conn.execute(f"ALTER TABLE github_comments ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
 
 
 def execute(sql, params=(), *, one=False, rows=False):
@@ -138,9 +162,11 @@ def get_comment_by_message(repo, message_id):
                    (repo, message_id), one=True)
 
 
-def save_comment(repo, comment_id, message_id, source):
-    execute("INSERT OR REPLACE INTO github_comments VALUES (?, ?, ?, ?)",
-            (repo, comment_id, message_id, source))
+def save_comment(repo, comment_id, message_id, source, actor_user_id=0, actor_guild_id=0):
+    execute("""INSERT OR REPLACE INTO github_comments
+               (repo, comment_id, message_id, source, actor_user_id, actor_guild_id)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (repo, comment_id, message_id, source, actor_user_id, actor_guild_id))
 
 
 def get_link(guild_id, user_id):

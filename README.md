@@ -223,7 +223,7 @@ Webhook signatures are verified before anything is queued, and deliveries for ot
 | --- | --- |
 | `/issue create title description priority assignee` | Create an issue, choose its priority, and optionally assign a linked Discord member. |
 | `/issue link username` | Set your GitHub username for assignment and reminder routing. |
-| `/issue unlink` | Remove your GitHub username preference. |
+| `/issue unlink` | Disconnect your GitHub sign-in and remove your username preference. |
 | `/issue assign number member` | Add a linked member as an assignee. |
 | `/issue unassign number member` | Remove a linked member as an assignee. |
 | `/issue priority number level` | Set low, medium, high, or urgent priority without removing unrelated labels. |
@@ -241,9 +241,19 @@ Issue and PR events create or refresh an activity card with a discussion thread.
 
 Messages from server members inside an issue/PR thread become GitHub issue comments. Direct Discord replies to the activity card also become comments. Other messages in the activity channel are not forwarded. GitHub issue comments (including general PR conversation comments) appear in the corresponding Discord thread. Bot/webhook messages are ignored, and forwarded comment echoes are suppressed.
 
-Comments post using the configured GitHub token, with the Discord author's name and original-message link in the body. User IDs are omitted from the visible author header. Discord tags become GitHub `@username` mentions when a username is linked; otherwise they become clickable `@display-name` links to Discord. Attachment URLs are included; files are not copied to GitHub and Discord URLs may expire. Edits and deletions to forwarded Discord messages update or delete their GitHub comments. GitHub-origin comment edits/deletions update/remove the bot's Discord copy. GitHub edits to a Discord-authored comment cannot rewrite the original user's Discord message. Inline PR review replies sent from Discord become general PR conversation comments.
+Comments and newly created issues use the member's GitHub App user token when they have signed in. Otherwise they use the owner's configured GitHub token. Every distinct fallback post triggers a DM asking the author to sign in; retries do not repeat that DM. Closed DMs do not prevent posting. Comments include the Discord author's name and original-message link. User IDs are omitted from the visible author header. Discord tags become GitHub `@username` mentions when a username is linked; otherwise they become clickable `@display-name` links to Discord. Attachment URLs are included; files are not copied to GitHub and Discord URLs may expire. Edits and deletions retain the original comment's credential owner, even if the author later signs in. GitHub-origin comment edits/deletions update/remove the bot's Discord copy. GitHub edits to a Discord-authored comment cannot rewrite the original user's Discord message. Inline PR review replies sent from Discord become general PR conversation comments.
 
 Long GitHub comments are attached as Markdown files so the full text remains available. GitHub activity does not trigger Discord mentions. Delivery is retried after failures; a crash immediately after a Discord send or DM can cause a duplicate notification.
+
+### GitHub sign-in
+
+Register a GitHub App with **Device Flow** enabled, expiring user tokens enabled, **Issues: read/write**, **Pull requests: read/write**, and mandatory **Metadata: read**. Leave all other permissions off. Make the app public so other members can authorize it; this does not make the repository public. Install it only on the repository configured for the Discord server. The existing repository webhook handles activity; the app's webhook can remain inactive. A device flow does not require a client secret or private key.
+
+Set `GITHUB_APP_CLIENT_ID` and `GITHUB_AUTH_ENCRYPTION_KEY` in `.env` and Railway. Generate the encryption key once with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Keep the key secret and stable across redeploys, and back it up separately from the database. User access/refresh tokens and pending device codes are encrypted in SQLite. Tokens refresh automatically; expired or revoked sign-ins fall back to the owner. Pending sign-ins survive restarts and obey GitHub's polling interval.
+
+Members can use `/github login` without the command role, or click **Sign in to GitHub** in a reminder DM. The bot gives them a private code to enter at GitHub's device sign-in page. After authorization, it verifies their GitHub identity and repository access, then saves the verified username for assignments and mentions. Each user must have access to the private repository; authorizing the app does not grant repository membership. `/github status` shows their connection, and `/github logout` removes locally stored credentials and pending sign-ins. Users can also revoke authorization in GitHub Settings → Applications. `/issue link` remains a username preference and cannot authenticate an account.
+
+Only Discord servers with GitHub integration receive `/github` commands. Issue management commands still require the configured command role. Automated activity reads, labels, assignments, issue state changes, and deadlines continue to use the owner's token.
 
 ### Deadlines and DMs
 
