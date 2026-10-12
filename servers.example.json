@@ -1,0 +1,14 @@
+[
+  {
+    "guild_id": "111111111111111111",
+    "command_role_id": "111111111111111112",
+    "github_channel_id": "111111111111111113",
+    "github_repo": "SirArthur2009/discord-bot"
+  },
+  {
+    "guild_id": "222222222222222221",
+    "command_role_id": "222222222222222222",
+    "github_channel_id": "222222222222222223",
+    "github_repo": "SirArthur2009/discord-bot"
+  }
+]

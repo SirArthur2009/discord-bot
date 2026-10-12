@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from github_integration import GitHubSettings, github_settings_for_servers, install_github
+from server_config import command_role_for_guild, load_servers, positive_id, sync_commands
+
 from database import (
     create_claim,
     delete_claim,
@@ -26,11 +29,9 @@ from database import (
 
 GUILD_ID = os.getenv("GUILD_ID")
 COMMAND_ROLE_ID = os.getenv("COMMAND_ROLE_ID")
+SERVERS = load_servers()
 
-if not COMMAND_ROLE_ID or not COMMAND_ROLE_ID.isdigit():
-    raise RuntimeError("COMMAND_ROLE_ID must be set to the numeric Discord role ID allowed to run commands.")
-
-COMMAND_ROLE_ID = int(COMMAND_ROLE_ID)
+COMMAND_ROLE_ID = None if SERVERS else positive_id(COMMAND_ROLE_ID, "COMMAND_ROLE_ID")
 db_lock = asyncio.Lock()
 
 
@@ -50,6 +51,39 @@ def format_interested_members(user_ids):
             break
         visible.append(mention)
     return f"{', '.join(visible)}\n…and {len(mentions) - len(visible)} more."
+
+
+def build_results_embeds(claim, options, interests):
+    """Split complete member lists across fields and messages within embed limits."""
+    title = f"Interest results — {claim['name']}"[:256]
+    pages = []
+    embed = discord.Embed(title=title, color=discord.Color.blurple())
+    for option in options:
+        user_ids = interests.get(option["id"], [])
+        chunks = []
+        chunk = ""
+        for user_id in user_ids:
+            mention = f"<@{user_id}>"
+            candidate = f"{chunk}, {mention}" if chunk else mention
+            if len(candidate) > 1024:
+                chunks.append(chunk)
+                chunk = mention
+            else:
+                chunk = candidate
+        chunks.append(chunk or "No one has signed up yet.")
+        for index, value in enumerate(chunks):
+            suffix = " (continued)" if index else f" ({len(user_ids)} interested)"
+            field_name = option["name"][:256 - len(suffix)] + suffix
+            # Reserve room for the page number and total in the footer.
+            if len(embed.fields) == 25 or len(embed) + len(field_name) + len(value) > 5900:
+                pages.append(embed)
+                embed = discord.Embed(title=title, color=discord.Color.blurple())
+            embed.add_field(name=field_name, value=value, inline=False)
+    pages.append(embed)
+    total = sum(len(ids) for ids in interests.values())
+    for index, page in enumerate(pages, start=1):
+        page.set_footer(text=f"{total} total sign-up(s) · Page {index} of {len(pages)}")
+    return pages
 
 
 def build_embed(claim_id):
@@ -142,24 +176,27 @@ class ClaimView(discord.ui.View):
 
 class ClaimBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix="!", intents=discord.Intents.default())
+        intents = discord.Intents.default()
+        intents.message_content = bool(github_settings_for_servers(SERVERS)) if SERVERS else GitHubSettings.from_environment() is not None
+        super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
         init_db()
         for claim in get_all_claim_ids():
             self.add_view(ClaimView.from_database(claim["id"]))
 
-        if GUILD_ID:
-            guild = discord.Object(id=int(GUILD_ID))
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-            print(f"Synced commands to guild {GUILD_ID}")
-        else:
-            await self.tree.sync()
-            print("Synced global commands.")
+        await install_github(self, COMMAND_ROLE_ID, SERVERS)
+
+        await sync_commands(self.tree, SERVERS, GUILD_ID)
 
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
+
+    async def close(self):
+        for name in ("IssueCog", "MultiIssueCog"):
+            if self.get_cog(name):
+                await self.remove_cog(name)
+        await super().close()
 
 
 bot = ClaimBot()
@@ -171,8 +208,9 @@ class ClaimGroup(app_commands.Group):
             return False
 
         member = interaction.user
+        role_id = command_role_for_guild(interaction.guild.id, SERVERS, COMMAND_ROLE_ID)
         return isinstance(member, discord.Member) and any(
-            role.id == COMMAND_ROLE_ID for role in member.roles
+            role.id == role_id for role in member.roles
         )
 
 
@@ -245,16 +283,9 @@ async def claim_show_results(interaction: discord.Interaction, name: str):
 
     options = get_options(claim["id"])
     interests = get_interests(claim["id"])
-    embed = discord.Embed(title=f"Interest results — {claim['name']}", color=discord.Color.blurple())
-    for option in options:
-        user_ids = interests.get(option["id"], [])
-        embed.add_field(
-            name=f"{option['name']} ({len(user_ids)} interested)",
-            value=format_interested_members(user_ids),
-            inline=False,
-        )
-    embed.set_footer(text=f"{sum(len(ids) for ids in interests.values())} total sign-up(s)")
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.defer()
+    for embed in build_results_embeds(claim, options, interests):
+        await interaction.followup.send(embed=embed)
 
 
 @claim_group.command(name="list-all-boards", description="List every claim board in this server.")
@@ -307,6 +338,7 @@ async def claim_reset(interaction: discord.Interaction, name: str):
         await interaction.response.send_message(f"I couldn't find **{name}**.", ephemeral=True)
         return
 
+    await interaction.response.defer(ephemeral=True)
     reset_claim(claim["id"])
     try:
         channel = bot.get_channel(claim["channel_id"])
@@ -319,7 +351,7 @@ async def claim_reset(interaction: discord.Interaction, name: str):
     except discord.HTTPException:
         pass
 
-    await interaction.response.send_message(f"**{name}** has been reset.", ephemeral=True)
+    await interaction.followup.send(f"**{name}** has been reset.", ephemeral=True)
 
 
 @claim_group.command(name="lock-claim", description="Lock a claim and close its sign-ups.")
@@ -337,6 +369,7 @@ async def claim_lock_claim(interaction: discord.Interaction, name: str):
         await interaction.response.send_message(f"**{name}** is already locked.", ephemeral=True)
         return
 
+    await interaction.response.defer(ephemeral=True)
     async with db_lock:
         lock_claim(claim["id"])
 
@@ -351,7 +384,7 @@ async def claim_lock_claim(interaction: discord.Interaction, name: str):
     except discord.HTTPException:
         pass
 
-    await interaction.response.send_message(
+    await interaction.followup.send(
         f"**{name}** is now locked. Sign-ups are closed.", ephemeral=True
     )
 
@@ -368,6 +401,7 @@ async def claim_delete(interaction: discord.Interaction, name: str):
         await interaction.response.send_message(f"I couldn't find **{name}**.", ephemeral=True)
         return
 
+    await interaction.response.defer(ephemeral=True)
     delete_claim(claim["id"])
     try:
         channel = bot.get_channel(claim["channel_id"])
@@ -377,7 +411,7 @@ async def claim_delete(interaction: discord.Interaction, name: str):
     except discord.HTTPException:
         pass
 
-    await interaction.response.send_message(f"Deleted **{name}**.", ephemeral=True)
+    await interaction.followup.send(f"Deleted **{name}**.", ephemeral=True)
 
 
 bot.tree.add_command(claim_group)
@@ -385,6 +419,8 @@ bot.tree.add_command(claim_group)
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if interaction.extras.get("github_error_handled"):
+        return
     if isinstance(error, app_commands.CheckFailure):
         message = "You need the required role to use this command."
     else:
@@ -397,8 +433,8 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
         await interaction.response.send_message(message, ephemeral=True)
 
 
-token = os.getenv("DISCORD_TOKEN")
-if not token:
-    raise RuntimeError("DISCORD_TOKEN environment variable is not set.")
-
-bot.run(token)
+if __name__ == "__main__":
+    token = os.getenv("DISCORD_TOKEN")
+    if not token:
+        raise RuntimeError("DISCORD_TOKEN environment variable is not set.")
+    bot.run(token)

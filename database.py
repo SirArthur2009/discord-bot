@@ -62,6 +62,8 @@ def init_db():
         WHERE claim_options.claimed_by IS NOT NULL
         """
     )
+    # Consume legacy values in the same transaction so removed interests stay removed.
+    conn.execute("UPDATE claim_options SET claimed_by = NULL, claimed_at = NULL")
     conn.commit()
     conn.close()
 
@@ -137,9 +139,10 @@ def create_claim(guild_id, channel_id, name, message, option_names):
             """
             INSERT INTO claims
             (guild_id, channel_id, message_id, name, message, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            SELECT ?, ?, COALESCE(MIN(message_id), 0) - 1, ?, ?, ?
+            FROM claims WHERE message_id <= 0
             """,
-            (guild_id, channel_id, 0, name, message, datetime.now(timezone.utc).isoformat()),
+            (guild_id, channel_id, name, message, datetime.now(timezone.utc).isoformat()),
         )
         claim_id = cursor.lastrowid
         conn.executemany(
