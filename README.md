@@ -200,7 +200,7 @@ Both servers may use the same repository or different repositories. For a shared
 
 When migrating an existing single-server deployment, keep its original `GITHUB_CHANNEL_ID` and `GITHUB_REPO` environment values for the first restart and include that channel in the file. Its existing thread mappings, pending jobs, and deadlines are moved into that channel's storage scope automatically. The settings in the file still control routing.
 
-Create a fine-grained GitHub token limited to the chosen repository with **Issues: read/write**, **Pull requests: read/write**, and **Contents: read**. GitHub automatically includes Metadata access. The token owner must have repository access. Priority labels are created automatically as `priority:low`, `priority:medium`, `priority:high`, and `priority:urgent`.
+Create a fine-grained GitHub token limited to the chosen repository with **Issues: read/write** and **Pull requests: read/write**. GitHub automatically includes Metadata access; Contents permission is unnecessary. The token owner must have repository access. Priority labels are created automatically as `priority:low`, `priority:medium`, `priority:high`, and `priority:urgent`.
 
 In the Discord Developer Portal, enable the bot's **Message Content Intent** so replies can be read. In the activity channel, grant the bot **View Channel**, **Send Messages**, **Embed Links**, **Read Message History**, **Create Public Threads**, **Send Messages in Threads**, **Attach Files**, and **Manage Threads**. The bot reopens archived threads when activity arrives. Members who will comment need access to the activity channel and its threads.
 
