@@ -167,7 +167,7 @@ GITHUB_CHANNEL_ID=your_discord_text_channel_id
 GITHUB_WEBHOOK_SECRET=your_random_webhook_secret
 ```
 
-Leave the token, channel, and secret blank to run only the claim portion. If you configure one, configure all three. The activity channel determines which Discord server can run `/issue` commands. All issue commands and Discord comments forwarded to GitHub require `COMMAND_ROLE_ID`.
+Leave the token, channel, and secret blank to run only the claim portion. If you configure one, configure all three. The activity channel determines which Discord server can run `/issue` commands. All issue management commands require `COMMAND_ROLE_ID`; members with access to a linked discussion can reply without that role.
 
 ### Two or more Discord servers
 
@@ -239,9 +239,9 @@ Assignment, priority, completion, and reopening modify GitHub directly. PRs are 
 
 Issue and PR events create or refresh an activity card with a discussion thread. Pushes post commit summaries and a comparison link. Reviews and inline review comments appear in the PR thread. Use `/issue show` to start discussing an existing issue or PR; the bot does not import historical events or comments automatically.
 
-Messages from members with the command role inside an issue/PR thread become GitHub issue comments. Direct Discord replies to the activity card also become comments. Other messages in the activity channel are not forwarded. GitHub issue comments (including general PR conversation comments) appear in the corresponding Discord thread. Bot/webhook messages are ignored, and forwarded comment echoes are suppressed.
+Messages from server members inside an issue/PR thread become GitHub issue comments. Direct Discord replies to the activity card also become comments. Other messages in the activity channel are not forwarded. GitHub issue comments (including general PR conversation comments) appear in the corresponding Discord thread. Bot/webhook messages are ignored, and forwarded comment echoes are suppressed.
 
-Comments post using the configured GitHub token, with the Discord author's name, user ID, and original-message link in the body. Attachment URLs are included; files are not copied to GitHub and Discord URLs may expire. Edits and deletions to forwarded Discord messages update or delete their GitHub comments. GitHub-origin comment edits/deletions update/remove the bot's Discord copy. GitHub edits to a Discord-authored comment cannot rewrite the original user's Discord message. Inline PR review replies sent from Discord become general PR conversation comments.
+Comments post using the configured GitHub token, with the Discord author's name and original-message link in the body. User IDs are omitted from the visible author header. Discord tags become GitHub `@username` mentions when a username is linked; otherwise they become clickable `@display-name` links to Discord. Attachment URLs are included; files are not copied to GitHub and Discord URLs may expire. Edits and deletions to forwarded Discord messages update or delete their GitHub comments. GitHub-origin comment edits/deletions update/remove the bot's Discord copy. GitHub edits to a Discord-authored comment cannot rewrite the original user's Discord message. Inline PR review replies sent from Discord become general PR conversation comments.
 
 Long GitHub comments are attached as Markdown files so the full text remains available. GitHub activity does not trigger Discord mentions. Delivery is retried after failures; a crash immediately after a Discord send or DM can cause a duplicate notification.
 

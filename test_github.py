@@ -19,7 +19,8 @@ import database
 import github_store as store
 from github_api import GitHubError, GitHubAPI
 from github_integration import (GitHubSettings, IssueCog, parse_deadline,
-                                reminder_stage, valid_signature, issue_embed)
+                                reminder_stage, valid_signature, issue_embed,
+                                display_github_mentions, clean_poster_header)
 
 
 def sample_issue(number=7, state="open"):
@@ -157,6 +158,7 @@ class IntegrationTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         self.cog.api.repo_request.assert_awaited_once()
         body = self.cog.api.repo_request.call_args.kwargs["json"]["body"]
         self.assertIn("Arthur on Discord", body)
+        self.assertNotIn("user ID", body)
         self.assertTrue(body.endswith("<!-- claimbot-discord:42 -->"))
         thread = SimpleNamespace(send=AsyncMock())
         await self.cog.relay_github_comment(thread, {"comment": {"id": 99}, "action": "created"})
@@ -235,7 +237,7 @@ class IntegrationTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         member.display_name = "Arthur"
         member.roles = [SimpleNamespace(id=1)]
         message = SimpleNamespace(author=member, webhook_id=None, channel=SimpleNamespace(id=100),
-                                  reference=SimpleNamespace(message_id=10), content="Reply", attachments=[],
+                                  reference=SimpleNamespace(message_id=10), content="Reply", attachments=[], mentions=[],
                                   id=12, guild=SimpleNamespace(id=1))
         await self.cog.on_message(message)
         job = store.next_job("owner/repo")
@@ -248,7 +250,7 @@ class IntegrationTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         message.reference = SimpleNamespace(message_id=10)
         member.roles = []
         await self.cog.on_message(message)
-        self.assertIsNone(store.next_job("owner/repo"))
+        self.assertIsNotNone(store.next_job("owner/repo"))
 
     async def test_command_access_requires_role_and_correct_server(self):
         user = MagicMock(spec=discord.Member)
@@ -272,7 +274,7 @@ class IntegrationTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         member = MagicMock(spec=discord.Member)
         member.bot = False
         member.roles = [SimpleNamespace(id=1)]
-        channel = SimpleNamespace(id=100, fetch_message=AsyncMock(return_value=SimpleNamespace(content="Newest", attachments=[], author=member)))
+        channel = SimpleNamespace(id=100, guild=SimpleNamespace(id=1), fetch_message=AsyncMock(return_value=SimpleNamespace(content="Newest", attachments=[], author=member, mentions=[])))
         self.bot.get_channel.return_value = channel
         await self.cog.update_discord_comment("discord_comment_edit", {"message_id": 42, "thread_id": 11, "content": "Stale", "attachments": []})
         method, path = self.cog.api.repo_request.call_args.args
@@ -280,7 +282,37 @@ class IntegrationTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         body = self.cog.api.repo_request.call_args.kwargs["json"]["body"]
         self.assertIn("Newest", body)
         self.assertNotIn("Stale", body)
+        self.assertNotIn("user ID", body)
         self.assertTrue(body.endswith("<!-- claimbot-discord:42 -->"))
+
+    async def test_linked_github_mentions_and_discord_names_are_rendered_in_comments(self):
+        async def empty_comments(number):
+            if False:
+                yield None
+        self.cog.api.comments = empty_comments
+        self.cog.api.repo_request.return_value = {"id": 99}
+        store.save_link(1, 43, "github-arthur")
+        payload = {"number": 7, "message_id": 42, "thread_id": 8, "guild_id": 1,
+                   "user_id": 3, "author": "Arthur", "content": "Hi <@43> and <@!44>",
+                   "mention_names": {"44": "Boone"}, "attachments": []}
+        await self.cog.forward_discord_comment(payload)
+        body = self.cog.api.repo_request.call_args.kwargs["json"]["body"]
+        self.assertIn("Hi @github-arthur and [@Boone](https://discord.com/users/44)", body)
+        self.assertNotIn("<@", body)
+        self.assertNotIn("user ID", body)
+
+    async def test_old_queued_mention_resolves_member_name(self):
+        guild = SimpleNamespace(get_member=MagicMock(return_value=None),
+                                fetch_member=AsyncMock(return_value=SimpleNamespace(display_name="Arthur")))
+        self.bot.get_guild.return_value = guild
+        text = await self.cog.render_mentions("Hi <@43>", 1)
+        self.assertEqual(text, "Hi [@Arthur](https://discord.com/users/43)")
+
+    async def test_unknown_member_does_not_show_raw_numeric_tag(self):
+        guild = SimpleNamespace(get_member=MagicMock(return_value=None), fetch_member=AsyncMock(
+            side_effect=discord.NotFound(SimpleNamespace(status=404, reason="missing"), "missing")))
+        self.bot.get_guild.return_value = guild
+        self.assertEqual(await self.cog.render_mentions("Hi <@43>", 1), "Hi @unknown member")
 
     async def test_raw_edit_is_persisted_before_network_requests(self):
         store.save_comment("owner/repo", 99, 42, "discord")

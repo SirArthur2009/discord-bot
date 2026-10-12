@@ -21,6 +21,25 @@ from github_api import GitHubAPI, GitHubError, PRIORITIES
 
 log = logging.getLogger(__name__)
 NO_MENTIONS = discord.AllowedMentions.none()
+USER_MENTION = re.compile(r"<@!?(\d+)>")
+
+
+def display_github_mentions(text, names, logins):
+    """Keep Discord mentions readable on GitHub without tagging unrelated accounts."""
+    def replace(match):
+        user_id = match.group(1)
+        if user_id in logins:
+            return f"@{logins[user_id]}"
+        name = names.get(user_id)
+        if name:
+            label = discord.utils.escape_markdown(name).replace("]", "\\]")
+            return f"[@{label}](https://discord.com/users/{user_id})"
+        return "@unknown member"
+    return USER_MENTION.sub(replace, text)
+
+
+def clean_poster_header(header):
+    return re.sub(r" \(user ID \d+\)$", "", header)
 
 
 @dataclass(frozen=True)
@@ -95,7 +114,7 @@ def issue_embed(issue, repo, storage_repo=None):
     if due:
         timestamp = int(datetime.fromisoformat(due["due_at"]).timestamp())
         embed.add_field(name="Deadline", value=f"<t:{timestamp}:F> (<t:{timestamp}:R>)", inline=False)
-    embed.set_footer(text=f"{repo} · Replies in the thread sync to GitHub for members with the command role.")
+    embed.set_footer(text=f"{repo} · Replies in this discussion sync to GitHub.")
     return embed
 
 
@@ -250,6 +269,28 @@ class IssueCog(commands.Cog):
         async with self.sync_lock:
             return await self.ensure_thread(issue["number"], issue)
 
+    async def render_mentions(self, text, guild_id, names=None):
+        names = dict(names or {})
+        logins = {}
+        guild = None
+        for user_id in dict.fromkeys(USER_MENTION.findall(text)):
+            link = store.get_link(guild_id, int(user_id))
+            if link:
+                logins[user_id] = link["login"]
+                continue
+            if user_id in names:
+                continue
+            if guild is None:
+                guild = self.bot.get_guild(guild_id) or await self.bot.fetch_guild(guild_id)
+            member = guild.get_member(int(user_id))
+            if member is None:
+                try:
+                    member = await guild.fetch_member(int(user_id))
+                except (discord.NotFound, discord.Forbidden):
+                    continue
+            names[user_id] = member.display_name
+        return display_github_mentions(text, names, logins)
+
     @tasks.loop(seconds=2)
     async def jobs(self):
         job = store.next_job(self.storage_repo)
@@ -356,8 +397,6 @@ class IssueCog(commands.Cog):
             return
         if not row or not isinstance(message.author, discord.Member):
             return
-        if not any(role.id == self.role_id for role in message.author.roles):
-            return
         if not message.content and not message.attachments:
             return
         # Persist before contacting GitHub. A failed request is retried after restart.
@@ -366,6 +405,7 @@ class IssueCog(commands.Cog):
             "guild_id": message.guild.id, "user_id": message.author.id,
             "author": message.author.display_name, "content": message.content,
             "attachments": [attachment.url for attachment in message.attachments],
+            "mention_names": {str(member.id): member.display_name for member in message.mentions},
         }, self.storage_repo)
 
     @commands.Cog.listener()
@@ -423,8 +463,6 @@ class IssueCog(commands.Cog):
                 member = await channel.guild.fetch_member(message.author.id)
             except discord.NotFound:
                 return
-        if not any(role.id == self.role_id for role in member.roles):
-            return
         # Read the latest revision so a delayed edit job cannot overwrite a newer edit.
         payload = {**payload, "content": message.content,
                    "attachments": [attachment.url for attachment in message.attachments]}
@@ -437,10 +475,12 @@ class IssueCog(commands.Cog):
         original = comment["body"]
         # Preserve attribution and the original link/marker while replacing the message body.
         header, _, remainder = original.partition("\n\n")
+        header = clean_poster_header(header)
         _, _, footer = remainder.rpartition("\n\n[Original Discord message]")
         if not footer:
             raise ValueError("Cannot update a comment whose Discord attribution was removed on GitHub.")
-        content = payload["content"]
+        content = await self.render_mentions(payload["content"], channel.guild.id,
+                                             {str(member.id): member.display_name for member in message.mentions})
         if payload["attachments"]:
             content += "\n\nAttachments:\n" + "\n".join(payload["attachments"])
         body = f"{header}\n\n{content}\n\n[Original Discord message]{footer}"
@@ -456,7 +496,8 @@ class IssueCog(commands.Cog):
                 store.save_comment(self.storage_repo, comment["id"], payload["message_id"], "discord")
                 return
         author = discord.utils.escape_markdown(payload["author"])
-        body = f"**{author} on Discord** (user ID {payload['user_id']})\n\n{payload['content']}"
+        content = await self.render_mentions(payload["content"], payload["guild_id"], payload.get("mention_names"))
+        body = f"**{author} on Discord**\n\n{content}"
         if payload["attachments"]:
             body += "\n\nAttachments:\n" + "\n".join(payload["attachments"])
         body += f"\n\n[Original Discord message](https://discord.com/channels/{payload['guild_id']}/{payload['thread_id']}/{payload['message_id']})\n\n{marker}"
@@ -530,7 +571,7 @@ class IssueCog(commands.Cog):
                      priority: str = "medium", assignee: discord.Member = None):
         if priority not in PRIORITIES:
             raise ValueError("Priority must be low, medium, high, or urgent.")
-        data = {"title": title, "body": description}
+        data = {"title": title, "body": await self.render_mentions(description, interaction.guild_id)}
         if assignee:
             link = store.get_link(interaction.guild_id, assignee.id)
             if not link:
