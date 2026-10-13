@@ -78,6 +78,21 @@ class AuthTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(store.get_comment("owner/repo", 88)["actor_user_id"], 3)
         api.close.assert_awaited_once()
 
+    async def test_reminder_opt_out_survives_restart_and_is_scoped(self):
+        interaction = SimpleNamespace(guild_id=1, user=SimpleNamespace(id=3),
+                                      response=SimpleNamespace(send_message=AsyncMock()))
+        await GitHubAuth.reminders.callback(self.auth, interaction, False)
+        store.init_github_db()
+        await self.worker.forward_discord_comment(self.payload())
+        self.worker.api.repo_request.assert_awaited_once()
+        self.auth.notify.assert_not_awaited()
+        self.assertTrue(store.login_reminders_enabled(2, 3))
+        self.assertTrue(store.login_reminders_enabled(1, 4))
+        await GitHubAuth.reminders.callback(self.auth, interaction, True)
+        await self.worker.forward_discord_comment(self.payload(43))
+        self.auth.notify.assert_awaited_once()
+        self.assertIn('/github reminders enabled:false', self.auth.notify.call_args.args[1])
+
     async def test_unauthenticated_username_link_does_not_impersonate_that_user(self):
         store.save_link(1, 3, "Alice")
         await self.worker.forward_discord_comment(self.payload())

@@ -125,6 +125,24 @@ class IntegrationTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         self.cog.api = SimpleNamespace(issue=AsyncMock(return_value=sample_issue()),
                                        repo_request=AsyncMock(), request=AsyncMock())
 
+    async def test_only_pr_merges_are_silent(self):
+        thread = SimpleNamespace(send=AsyncMock())
+        self.cog.ensure_thread = AsyncMock(return_value=thread)
+        for event, action, merged, expected in (
+            ('pull_request', 'closed', True, True),
+            ('pull_request', 'closed', False, False),
+            ('pull_request', 'opened', False, False),
+            ('issues', 'closed', False, False),
+        ):
+            with self.subTest(event=event, action=action, merged=merged):
+                issue = sample_issue(state='closed' if action == 'closed' else 'open')
+                issue['merged'] = merged
+                self.cog.api.issue.return_value = issue
+                await self.cog.process_event(event, {
+                    'action': action, 'pull_request' if event == 'pull_request' else 'issue': issue,
+                })
+                self.assertEqual(thread.send.call_args.kwargs['silent'], expected)
+
     async def test_http_webhook_rejects_forgery_and_wrong_repo_and_deduplicates(self):
         app = web.Application()
         app.router.add_post("/github/webhook", self.cog.webhook)

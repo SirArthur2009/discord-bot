@@ -54,6 +54,12 @@ def init_github_db():
         CREATE TABLE IF NOT EXISTS github_login_prompts (
             delivery TEXT PRIMARY KEY
         );
+        CREATE TABLE IF NOT EXISTS github_notification_preferences (
+            guild_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            login_reminders INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (guild_id, user_id)
+        );
         CREATE TABLE IF NOT EXISTS github_comment_actors (
             repo TEXT NOT NULL, message_id INTEGER NOT NULL,
             guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
@@ -182,6 +188,18 @@ def save_link(guild_id, user_id, login):
 
 def delete_link(guild_id, user_id):
     execute("DELETE FROM github_links WHERE guild_id = ? AND user_id = ?", (guild_id, user_id))
+
+
+def login_reminders_enabled(guild_id, user_id):
+    row = execute("SELECT login_reminders FROM github_notification_preferences WHERE guild_id = ? AND user_id = ?",
+                  (guild_id, user_id), one=True)
+    return row is None or bool(row["login_reminders"])
+
+
+def set_login_reminders(guild_id, user_id, enabled):
+    execute("""INSERT INTO github_notification_preferences VALUES (?, ?, ?)
+               ON CONFLICT(guild_id, user_id) DO UPDATE SET login_reminders = excluded.login_reminders""",
+            (guild_id, user_id, int(enabled)))
 
 
 def get_deadline(repo, number):

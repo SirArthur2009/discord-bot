@@ -130,6 +130,8 @@ class GitHubAuth(commands.Cog):
             log.info("GitHub sign-in DM could not be delivered to Discord user %s", user_id)
 
     async def prompt_fallback(self, guild_id, user_id, delivery):
+        if not store.login_reminders_enabled(guild_id, user_id):
+            return
         # Every distinct post gets a DM; network retries of the same post do not.
         if store.execute("SELECT 1 FROM github_login_prompts WHERE delivery = ?", (delivery,), one=True):
             return
@@ -139,7 +141,9 @@ class GitHubAuth(commands.Cog):
                           f"Your post to **{worker.repo}** used **SirArthur2009’s GitHub account** because your "
                           "GitHub sign-in is missing or unavailable. Sign in below (or use /github login) "
                           "to have future posts appear under your own account. You’ll receive this reminder "
-                          "for each post until connected.", guild_id)
+                          "for each post until connected. To disable these DMs, run "
+                          "`/github reminders enabled:false` in the Discord server where you posted. "
+                          "Use `enabled:true` to turn them back on.", guild_id)
 
     def remove_auth(self, guild_id, user_id):
         store.execute("DELETE FROM github_auth WHERE guild_id = ? AND user_id = ?", (guild_id, user_id))
@@ -290,14 +294,24 @@ class GitHubAuth(commands.Cog):
             store.delete_link(interaction.guild_id, interaction.user.id)
             store.execute("DELETE FROM github_device_flows WHERE guild_id = ? AND user_id = ?",
                           (interaction.guild_id, interaction.user.id))
-        await interaction.followup.send("Disconnected. Future posts use SirArthur2009’s account with a login reminder. "
+        await interaction.followup.send("Disconnected. Future posts use SirArthur2009’s account. "
+                                        "Manage sign-in reminder DMs with /github reminders. "
                                         "You can also revoke the app in GitHub Settings → Applications.", ephemeral=True)
+
+    @github_group.command(name="reminders", description="Enable or disable your GitHub sign-in reminder DMs in this server.")
+    @app_commands.describe(enabled="False disables sign-in reminder DMs; true enables them.")
+    async def reminders(self, interaction: discord.Interaction, enabled: bool):
+        store.set_login_reminders(interaction.guild_id, interaction.user.id, enabled)
+        await interaction.response.send_message(
+            f"GitHub sign-in reminder DMs are {'enabled' if enabled else 'disabled'} for you in this server. "
+            "Change this anytime with `/github reminders enabled:true` or `enabled:false`.", ephemeral=True)
 
     @github_group.command(name="status", description="Show which GitHub account will author your posts.")
     async def status(self, interaction: discord.Interaction):
         row = store.execute("SELECT login FROM github_auth WHERE guild_id = ? AND user_id = ?",
                             (interaction.guild_id, interaction.user.id), one=True)
         text = f"Connected as **@{row['login']}**." if row else "Not signed in. Posts use SirArthur2009’s account. Use /github login to connect."
+        text += f" Sign-in reminder DMs: {'enabled' if store.login_reminders_enabled(interaction.guild_id, interaction.user.id) else 'disabled'}. Manage them with /github reminders."
         await interaction.response.send_message(text, ephemeral=True)
 
 

@@ -354,7 +354,8 @@ class IssueCog(commands.Cog):
                 await self.ensure_thread(issue["number"], current)
             await thread.send(f"{event.replace('_', ' ').title()}: **{payload.get('action', 'updated')}** by "
                               f"{discord.utils.escape_markdown(payload.get('sender', {}).get('login', 'GitHub'))}.",
-                              allowed_mentions=NO_MENTIONS)
+                              allowed_mentions=NO_MENTIONS,
+                              silent=event == "pull_request" and payload.get("action") == "closed" and bool(issue.get("merged")))
         elif event == "issue_comment":
             await self.relay_github_comment(thread, payload)
         elif event in {"pull_request_review", "pull_request_review_comment"}:
