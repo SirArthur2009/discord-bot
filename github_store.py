@@ -60,6 +60,10 @@ def init_github_db():
             login_reminders INTEGER NOT NULL DEFAULT 1,
             PRIMARY KEY (guild_id, user_id)
         );
+        CREATE TABLE IF NOT EXISTS github_activity_preferences (
+            repo TEXT PRIMARY KEY,
+            push_enabled INTEGER NOT NULL DEFAULT 1
+        );
         CREATE TABLE IF NOT EXISTS github_comment_actors (
             repo TEXT NOT NULL, message_id INTEGER NOT NULL,
             guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
@@ -194,6 +198,16 @@ def login_reminders_enabled(guild_id, user_id):
     row = execute("SELECT login_reminders FROM github_notification_preferences WHERE guild_id = ? AND user_id = ?",
                   (guild_id, user_id), one=True)
     return row is None or bool(row["login_reminders"])
+
+
+def activity_push_enabled(repo):
+    row = execute("SELECT push_enabled FROM github_activity_preferences WHERE repo = ?", (repo,), one=True)
+    return row is None or bool(row["push_enabled"])
+
+
+def set_activity_push(repo, enabled):
+    execute("""INSERT INTO github_activity_preferences VALUES (?, ?)
+               ON CONFLICT(repo) DO UPDATE SET push_enabled = excluded.push_enabled""", (repo, int(enabled)))
 
 
 def set_login_reminders(guild_id, user_id, enabled):

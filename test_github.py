@@ -125,6 +125,41 @@ class IntegrationTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         self.cog.api = SimpleNamespace(issue=AsyncMock(return_value=sample_issue()),
                                        repo_request=AsyncMock(), request=AsyncMock())
 
+    async def test_admin_notifications_are_durable_scoped_and_reversible(self):
+        interaction = SimpleNamespace(user=SimpleNamespace(guild_permissions=SimpleNamespace(administrator=True)),
+                                      followup=SimpleNamespace(send=AsyncMock()))
+        await IssueCog.notifications.callback(self.cog, interaction, False)
+        store.init_github_db()
+        self.assertFalse(store.activity_push_enabled(self.cog.storage_repo))
+        self.assertTrue(store.activity_push_enabled('owner/repo#channel:200'))
+        channel = SimpleNamespace(send=AsyncMock())
+        self.cog.channel = AsyncMock(return_value=channel)
+        await self.cog.process_event('push', {'ref': 'refs/heads/main'})
+        self.assertTrue(channel.send.call_args.kwargs['silent'])
+        thread = SimpleNamespace(send=AsyncMock())
+        self.cog.ensure_thread = AsyncMock(return_value=thread)
+        await self.cog.process_event('issues', {'issue': sample_issue(), 'action': 'opened'})
+        self.assertTrue(thread.send.call_args.kwargs['silent'])
+        await self.cog.process_event('pull_request_review', {
+            'pull_request': sample_issue(), 'action': 'submitted', 'review': {'body': 'Review'},
+        })
+        self.assertTrue(thread.send.call_args.kwargs['silent'])
+        thread.send.return_value = SimpleNamespace(id=123)
+        self.cog.api.repo_request.return_value = {'id': 99, 'body': 'Comment', 'user': {'login': 'Alice'}}
+        await self.cog.relay_github_comment(thread, {'action': 'created', 'comment': {'id': 99}})
+        self.assertTrue(thread.send.call_args.kwargs['silent'])
+        await IssueCog.notifications.callback(self.cog, interaction, True)
+        await self.cog.process_event('push', {'ref': 'refs/heads/main'})
+        self.assertFalse(channel.send.call_args.kwargs['silent'])
+
+    async def test_non_admin_cannot_toggle_notifications(self):
+        interaction = SimpleNamespace(user=SimpleNamespace(guild_permissions=SimpleNamespace(administrator=False)),
+                                      followup=SimpleNamespace(send=AsyncMock()))
+        with self.assertRaises(app_commands.CheckFailure):
+            await IssueCog.notifications.callback(self.cog, interaction, False)
+        self.assertTrue(store.activity_push_enabled(self.cog.storage_repo))
+        interaction.followup.send.assert_not_awaited()
+
     async def test_only_pr_merges_are_silent(self):
         thread = SimpleNamespace(send=AsyncMock())
         self.cog.ensure_thread = AsyncMock(return_value=thread)
@@ -359,7 +394,7 @@ class IntegrationTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(group)
         self.assertEqual({command.name for command in group.commands},
                          {"create", "assign", "unassign", "priority", "complete", "reopen",
-                          "show", "list", "link", "unlink", "deadline"})
+                          "show", "list", "link", "unlink", "deadline", "notifications"})
         self.assertIs(group.get_command("create").binding, cog)
         await bot.remove_cog("IssueCog")
 

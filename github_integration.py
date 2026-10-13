@@ -214,7 +214,11 @@ class IssueCog(commands.Cog):
         return channel
 
     async def interaction_check(self, interaction):
-        if not isinstance(interaction.user, discord.Member) or not any(role.id == self.role_id for role in interaction.user.roles):
+        is_notifications = getattr(getattr(interaction, "command", None), "name", None) == "notifications"
+        if is_notifications:
+            if not interaction.user.guild_permissions.administrator:
+                raise app_commands.CheckFailure("Only server administrators can change GitHub activity notifications.")
+        elif not isinstance(interaction.user, discord.Member) or not any(role.id == self.role_id for role in interaction.user.roles):
             raise app_commands.CheckFailure("Required role missing")
         await interaction.response.defer(ephemeral=True)
         channel = await self.channel()
@@ -226,7 +230,9 @@ class IssueCog(commands.Cog):
     async def cog_app_command_error(self, interaction, error):
         original = getattr(error, "original", error)
         if isinstance(original, app_commands.CheckFailure):
-            text = "You need the configured command role to use /issue."
+            text = ("Only server administrators can change GitHub activity notifications."
+                    if getattr(getattr(interaction, "command", None), "name", None) == "notifications"
+                    else "You need the configured command role to use /issue.")
         elif isinstance(original, (GitHubError, ValueError)):
             text = str(original)
         else:
@@ -250,7 +256,8 @@ class IssueCog(commands.Cog):
             except discord.NotFound:
                 pass
         if message is None:
-            message = await channel.send(embed=issue_embed(issue, self.repo, self.storage_repo), allowed_mentions=NO_MENTIONS)
+            message = await channel.send(embed=issue_embed(issue, self.repo, self.storage_repo), allowed_mentions=NO_MENTIONS,
+                                         silent=not store.activity_push_enabled(self.storage_repo))
             # Persist the root before creating its thread so a retry reuses it.
             store.save_thread(self.storage_repo, number, message.id)
         else:
@@ -339,7 +346,8 @@ class IssueCog(commands.Cog):
             embed = discord.Embed(title=f"Push to {payload['ref']}"[:256], description=description[:4000],
                                   url=payload.get("compare"), color=discord.Color.blurple())
             embed.set_footer(text=f"{self.repo} · {payload.get('sender', {}).get('login', 'GitHub')}")
-            await channel.send(embed=embed, allowed_mentions=NO_MENTIONS)
+            await channel.send(embed=embed, allowed_mentions=NO_MENTIONS,
+                               silent=not store.activity_push_enabled(self.storage_repo))
             return
         issue = payload.get("issue") or payload.get("pull_request")
         if not issue:
@@ -355,14 +363,16 @@ class IssueCog(commands.Cog):
             await thread.send(f"{event.replace('_', ' ').title()}: **{payload.get('action', 'updated')}** by "
                               f"{discord.utils.escape_markdown(payload.get('sender', {}).get('login', 'GitHub'))}.",
                               allowed_mentions=NO_MENTIONS,
-                              silent=event == "pull_request" and payload.get("action") == "closed" and bool(issue.get("merged")))
+                              silent=not store.activity_push_enabled(self.storage_repo) or
+                              (event == "pull_request" and payload.get("action") == "closed" and bool(issue.get("merged"))))
         elif event == "issue_comment":
             await self.relay_github_comment(thread, payload)
         elif event in {"pull_request_review", "pull_request_review_comment"}:
             item = payload.get("review") or payload.get("comment") or {}
             if payload.get("action") in {"submitted", "created"}:
                 text = f"PR review by **{discord.utils.escape_markdown(item.get('user', {}).get('login', 'GitHub'))}**: {item.get('state', 'comment')}\n{item.get('body') or ''}\n{item.get('html_url') or current['html_url']}"
-                await thread.send(text[:2000], allowed_mentions=NO_MENTIONS)
+                await thread.send(text[:2000], allowed_mentions=NO_MENTIONS,
+                                  silent=not store.activity_push_enabled(self.storage_repo))
 
     async def relay_github_comment(self, thread, payload):
         comment = payload["comment"]
@@ -397,7 +407,7 @@ class IssueCog(commands.Cog):
                 return
             except discord.NotFound:
                 pass
-        sent = await thread.send(**comment_kwargs(comment))
+        sent = await thread.send(**comment_kwargs(comment), silent=not store.activity_push_enabled(self.storage_repo))
         store.save_comment(self.storage_repo, comment["id"], sent.id, "github")
 
     @commands.Cog.listener()
@@ -704,6 +714,19 @@ class IssueCog(commands.Cog):
         store.delete_link(interaction.guild_id, interaction.user.id)
         await interaction.followup.send("Removed your GitHub username preference.", ephemeral=True)
 
+    @issue_group.command(name="notifications", description="Admins: toggle GitHub activity push notifications for this server.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(enabled="False sends GitHub updates silently; true restores notifications (merges stay silent).")
+    async def notifications(self, interaction: discord.Interaction, enabled: bool):
+        if not interaction.user.guild_permissions.administrator:
+            raise app_commands.CheckFailure("Only server administrators can change GitHub activity notifications.")
+        store.set_activity_push(self.storage_repo, enabled)
+        await interaction.followup.send(
+            f"GitHub activity push notifications are {'enabled' if enabled else 'disabled'} for this server. "
+            "Updates remain visible; PR merges always stay silent. "
+            "Change this with `/issue notifications enabled:true` or `enabled:false`. "
+            "DM reminders and messages from members are unaffected.", ephemeral=True)
+
     @issue_group.command(name="deadline", description="Set a deadline with an explicit timezone, or use clear to remove it.")
     async def deadline(self, interaction: discord.Interaction, number: app_commands.Range[int, 1],
                        due: str, recipient: discord.Member = None):
@@ -812,6 +835,12 @@ class MultiIssueCog(commands.Cog):
     async def on_raw_message_delete(self, event):
         for worker in self.workers.values():
             await worker.on_raw_message_delete(event)
+
+    @issue_group.command(name="notifications", description="Admins: toggle GitHub activity push notifications for this server.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(enabled="False sends GitHub updates silently; true restores notifications (merges stay silent).")
+    async def notifications(self, interaction: discord.Interaction, enabled: bool):
+        await IssueCog.notifications.callback(self.worker_for(interaction), interaction, enabled)
 
     @issue_group.command(name="create", description="Create a GitHub issue and its Discord discussion.")
     @app_commands.choices(priority=[app_commands.Choice(name=value.title(), value=value) for value in PRIORITIES])

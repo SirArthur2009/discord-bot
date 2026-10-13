@@ -185,7 +185,7 @@ class MultiServerTests(DatabaseFixture, unittest.IsolatedAsyncioTestCase):
         with patch.object(cog, "cog_load", new=AsyncMock()):
             await bot.add_cog(cog)
         group = bot.tree.get_command("issue")
-        self.assertEqual(len(group.commands), 11)
+        self.assertEqual(len(group.commands), 12)
         self.assertIs(group.get_command("show").binding, cog)
         await bot.remove_cog("MultiIssueCog")
 
